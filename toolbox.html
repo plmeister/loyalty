@@ -8,21 +8,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bwip-js@4.8.0/dist/bwip-js-min.js"></script>
     <script type="module">
-        import {
-            BrowserMultiFormatReader,
-            BarcodeFormat,
-            DecodeHintType
-        } from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
+    import {
+        BrowserMultiFormatReader,
+        BarcodeFormat
+    } from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
 
-        window.ZXingBrowser = {
-            BrowserMultiFormatReader,
-            BarcodeFormat,
-            DecodeHintType
-        };
+    window.ZXingBrowser = {
+        BrowserMultiFormatReader,
+        BarcodeFormat
+    };
 
-        window.dispatchEvent(new Event("zxing-ready"));
-    </script>
-
+    window.dispatchEvent(new Event("zxing-ready"));
+</script>
     <style>
         :root {
             color-scheme: dark;
@@ -836,78 +833,60 @@
         });
     }
 
-    async function openScanner(target) {
-        if (!window.ZXingBrowser) {
-            els.scannerStatus.textContent = "Scanner library is still loading…";
-            return;
-        }
-
-        state.scannerTarget = target;
-        els.scanner.classList.add("visible");
-        els.scannerStatus.classList.remove("scanner-error");
-        els.scannerStatus.textContent =
-            "Centre the barcode and fill as much of the frame as practical.";
-
-        const {
-            BrowserMultiFormatReader,
-            BarcodeFormat
-        } = window.ZXingBrowser;
-
-        try {
-            const hints = new Map();
-
-            hints.set(
-                window.ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS,
-                [
-                    BarcodeFormat.EAN_13,
-                    BarcodeFormat.EAN_8,
-                    BarcodeFormat.UPC_A,
-                    BarcodeFormat.UPC_E,
-                    BarcodeFormat.CODE_128,
-                    BarcodeFormat.CODE_39,
-                    BarcodeFormat.ITF,
-                    BarcodeFormat.QR_CODE,
-                    BarcodeFormat.DATA_MATRIX,
-                    BarcodeFormat.AZTEC
-                ]
-            );
-
-            state.reader = new BrowserMultiFormatReader(hints);
-
-            state.controls = await state.reader.decodeFromConstraints(
-                {
-                    video: {
-                        facingMode: { ideal: "environment" }
-                    }
-                },
-                els.scannerVideo,
-                (result, error) => {
-                    if (!result) {
-                        return;
-                    }
-
-                    const text = result.getText();
-                    const format = result.getBarcodeFormat();
-
-                    const formatName =
-                        Object.entries(BarcodeFormat)
-                            .find(([, value]) => value === format)?.[0]
-                        || "Unknown";
-
-                    setValue(state.scannerTarget, text, formatName);
-                    addHistory(text, formatName);
-                    closeScanner();
-                }
-            );
-        } catch (error) {
-            console.error(error);
-
-            els.scannerStatus.textContent =
-                "Unable to start the camera. Check camera permission and try again.";
-            els.scannerStatus.classList.add("scanner-error");
-        }
+async function openScanner(target) {
+    if (!window.ZXingBrowser) {
+        els.scannerStatus.textContent = "Scanner library is still loading…";
+        return;
     }
 
+    state.scannerTarget = target;
+    els.scanner.classList.add("visible");
+    els.scannerStatus.classList.remove("scanner-error");
+    els.scannerStatus.textContent =
+        "Centre the barcode and fill as much of the frame as practical.";
+
+    const {
+        BrowserMultiFormatReader,
+        BarcodeFormat
+    } = window.ZXingBrowser;
+
+    try {
+        state.reader = new BrowserMultiFormatReader();
+
+        state.controls = await state.reader.decodeFromConstraints(
+            {
+                video: {
+                    facingMode: { ideal: "environment" }
+                }
+            },
+            els.scannerVideo,
+            (result, error) => {
+                if (!result) {
+                    return;
+                }
+
+                const text = result.getText();
+                const format = result.getBarcodeFormat();
+
+                const formatName =
+                    Object.entries(BarcodeFormat)
+                        .find(([, value]) => value === format)?.[0]
+                    || "Unknown";
+
+                setValue(state.scannerTarget, text, formatName);
+                addHistory(text, formatName);
+                closeScanner();
+            }
+        );
+    } catch (error) {
+        console.error(error);
+
+        els.scannerStatus.textContent =
+            "Unable to start the camera. Check camera permission and try again.";
+        els.scannerStatus.classList.add("scanner-error");
+    }
+}
+    
     function closeScanner() {
         if (state.controls) {
             state.controls.stop();
