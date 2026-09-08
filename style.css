@@ -377,9 +377,13 @@ input[type="color"] {
         16px
         env(safe-area-inset-bottom);
     max-width: none;
+
+    display: flex;
+    flex-direction: column;
 }
 
 .scanner-header {
+    flex: 0 0 auto;
     margin: 0;
 }
 
@@ -389,10 +393,18 @@ input[type="color"] {
 
 .scanner-container {
     position: relative;
+
+    /*
+     * Don't impose a barcode-shaped aspect ratio.
+     * The camera gets as much of the available screen as possible.
+     */
     width: 100%;
-    max-width: 600px;
-    margin: 20px auto 0;
-    aspect-ratio: 4 / 3;
+    max-width: 900px;
+
+    flex: 1 1 auto;
+    min-height: 0;
+
+    margin: 12px auto 0;
     overflow: hidden;
     border-radius: 12px;
 }
@@ -404,17 +416,30 @@ input[type="color"] {
 }
 
 .scanner-frame {
+    /*
+     * Generic scanning area suitable for both 1D and 2D codes.
+     * It's deliberately wide without being extremely narrow/high.
+     */
     position: absolute;
-    inset: 15%;
+    top: 15%;
+    bottom: 15%;
+    left: 6%;
+    right: 6%;
+
     border: 2px solid white;
     border-radius: 10px;
+
     box-shadow: 0 0 0 9999px rgb(0 0 0 / 35%);
 }
 
 .scanner-status {
+    flex: 0 0 auto;
+
     text-align: center;
     color: white;
-    margin: 18px auto;
+
+    margin: 12px auto 8px;
+    max-width: 600px;
 }
 
 /* Fullscreen viewer */
@@ -423,8 +448,9 @@ input[type="color"] {
     position: fixed;
     inset: 0;
     z-index: 30;
-    background: #fff;
-    color: #000;
+
+    background: var(--viewer-accent);
+    color: #fff;
 
     display: flex;
     flex-direction: column;
@@ -433,12 +459,11 @@ input[type="color"] {
         env(safe-area-inset-top)
         12px
         env(safe-area-inset-bottom);
-
-    --viewer-accent: #2d7d46;
 }
 
 .viewer-top {
     flex: 0 0 auto;
+
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -450,47 +475,70 @@ input[type="color"] {
 .viewer-top span {
     font-size: 17px;
     font-weight: 700;
+
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+
     padding: 0 8px;
 }
 
 .viewer-button {
     flex: 0 0 auto;
+
     width: 44px;
     height: 44px;
 
     border: 0;
     border-radius: 9px;
+
     background: transparent;
-    color: #111;
+    color: #fff;
 
     font-size: 27px;
 }
 
 .viewer-button:hover {
-    background: #eee;
+    background: rgb(255 255 255 / 15%);
 }
 
+/*
+ * White quiet-zone around the barcode.
+ *
+ * This is intentionally a real white container rather than simply
+ * making the canvas white. It gives scanners plenty of clean margin
+ * around both 1D and 2D codes.
+ */
 .viewer-code-container {
     flex: 1 1 auto;
+    min-height: 0;
 
     display: flex;
     align-items: center;
     justify-content: center;
 
-    /*
-     * Deliberately tight: the code gets almost all of the available
-     * screen rather than sitting in a large padded box.
-     */
-    min-height: 0;
-    padding: 4px 2px;
+    background: #fff;
+    border-radius: 18px;
+
+    margin: 10px 4px;
+    padding: 24px;
+
     overflow: hidden;
 }
 
 #viewerCode {
     display: block;
+
+    max-width: 100%;
+    max-height: 100%;
+
+    /*
+     * Don't let the canvas itself introduce a second visible margin.
+     */
+    object-fit: contain;
+}
+
+.viewer-code-container canvas {
     max-width: 100%;
     max-height: 100%;
 }
@@ -506,11 +554,13 @@ input[type="color"] {
 
 .viewer-action {
     flex: 1;
+
     min-height: 42px;
 
-    border: 1px solid #ccc;
+    border: 1px solid rgb(255 255 255 / 50%);
     border-radius: 9px;
-    background: #f5f5f5;
+
+    background: rgb(255 255 255 / 90%);
     color: #111;
 
     font-weight: 600;
@@ -518,15 +568,6 @@ input[type="color"] {
 
 .viewer-action.danger {
     color: #b00020;
-}
-
-/*
- * For linear barcodes bwip-js can produce a fairly wide canvas.
- * Let it become as large as possible while retaining a small margin.
- */
-.viewer-code-container canvas {
-    max-width: min(98vw, 900px);
-    max-height: calc(100vh - 120px);
 }
 
 /* Desktop */
