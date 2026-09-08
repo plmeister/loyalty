@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#111">
+    <title>Barcode Toolbox</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/bwip-js@4.8.0/dist/bwip-js-min.js"></script>
+    <script type="module">
+        import {
+            BrowserMultiFormatReader,
+            BarcodeFormat,
+            DecodeHintType
+        } from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
+
+        window.ZXingBrowser = {
+            BrowserMultiFormatReader,
+            BarcodeFormat,
+            DecodeHintType
+        };
+
+        window.dispatchEvent(new Event("zxing-ready"));
+    </script>
+
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #111;
+            --panel: #1c1c1e;
+            --panel2: #2c2c2e;
+            --text: #f5f5f7;
+            --muted: #98989f;
+            --accent: #0a84ff;
+            --border: #3a3a3c;
+            --good: #30d158;
+            --bad: #ff453a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+        }
+
+        body {
+            padding:
+                env(safe-area-inset-top)
+                12px
+                env(safe-area-inset-bottom);
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        button {
+            border: 0;
+            border-radius: 10px;
+            padding: 11px 15px;
+            background: var(--panel2);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        button.primary {
+            background: var(--accent);
+        }
+
+        button.danger {
+            color: var(--bad);
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: default;
+        }
+
+        .page {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 0 18px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 25px;
+        }
+
+        .subtitle {
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .panel {
+            background: var(--panel);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        .panel h2 {
+            margin: 0 0 14px;
+            font-size: 18px;
+        }
+
+        .sides {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        @media (max-width: 650px) {
+            .sides {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .side {
+            background: var(--panel2);
+            border-radius: 13px;
+            padding: 14px;
+        }
+
+        .side-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .side-title strong {
+            font-size: 17px;
+        }
+
+        .format {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #111;
+            color: var(--text);
+            padding: 13px;
+            font-size: 18px;
+            letter-spacing: 0.04em;
+        }
+
+        .side-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .side-actions button {
+            flex: 1;
+        }
+
+        .compare-actions {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .diff-result {
+            overflow-x: auto;
+        }
+
+        .diff-row {
+            display: flex;
+            align-items: center;
+            min-width: max-content;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 20px;
+            line-height: 1.8;
+        }
+
+        .diff-label {
+            width: 90px;
+            flex: 0 0 90px;
+            color: var(--muted);
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+            font-size: 13px;
+        }
+
+        .digits {
+            display: flex;
+        }
+
+        .digit {
+            width: 24px;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .digit.same {
+            color: var(--text);
+        }
+
+        .digit.changed {
+            background: rgb(255 69 58 / 25%);
+            color: #ff8a83;
+            font-weight: 700;
+        }
+
+        .digit.missing {
+            color: #555;
+            background: rgb(255 255 255 / 5%);
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        @media (max-width: 600px) {
+            .summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat {
+            background: var(--panel2);
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .stat-label {
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .analysis {
+            margin-top: 14px;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .analysis strong {
+            color: var(--text);
+        }
+
+        .checksum {
+            display: inline-block;
+            margin-top: 6px;
+            padding: 4px 8px;
+            border-radius: 7px;
+            background: rgb(48 209 88 / 15%);
+            color: var(--good);
+        }
+
+        .checksum.invalid {
+            background: rgb(255 69 58 / 15%);
+            color: var(--bad);
+        }
+
+        .scanner {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            background: #000;
+            padding:
+                env(safe-area-inset-top)
+                12px
+                env(safe-area-inset-bottom);
+        }
+
+        .scanner.visible {
+            display: flex;
+        }
+
+        .scanner-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+        }
+
+        .scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            flex: 1 1 auto;
+            min-height: 0;
+            margin: 12px auto 0;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        #scannerVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .scanner-frame {
+            position: absolute;
+            top: 15%;
+            bottom: 15%;
+            left: 6%;
+            right: 6%;
+            border: 2px solid white;
+            border-radius: 10px;
+            box-shadow: 0 0 0 9999px rgb(0 0 0 / 35%);
+            pointer-events: none;
+        }
+
+        .scanner-status {
+            padding: 12px 4px 8px;
+            text-align: center;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .scanner-error {
+            color: #ff8a83;
+        }
+
+        .history {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            background: var(--panel2);
+            border-radius: 9px;
+            padding: 10px 12px;
+        }
+
+        .history-value {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        .history-format {
+            color: var(--muted);
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        .empty {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .footer {
+            color: var(--muted);
+            text-align: center;
+            font-size: 12px;
+            padding: 8px 0 20px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="page">
+    <header>
+        <div>
+            <h1>Barcode Toolbox</h1>
+            <div class="subtitle">Scan, inspect and compare barcodes</div>
+        </div>
+        <button id="clearButton" class="danger">Clear</button>
+    </header>
+
+    <section class="panel">
+        <h2>Compare</h2>
+
+        <div class="sides">
+            <div class="side">
+                <div class="side-title">
+                    <strong>Barcode A</strong>
+                    <span id="formatA" class="format">—</span>
+                </div>
+
+                <input
+                    id="valueA"
+                    type="text"
+                    inputmode="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Enter or scan"
+                >
+
+                <div class="side-actions">
+                    <button id="scanA" class="primary">Scan</button>
+                    <button id="copyA">Copy</button>
+                </div>
+            </div>
+
+            <div class="side">
+                <div class="side-title">
+                    <strong>Barcode B</strong>
+                    <span id="formatB" class="format">—</span>
+                </div>
+
+                <input
+                    id="valueB"
+                    type="text"
+                    inputmode="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Enter or scan"
+                >
+
+                <div class="side-actions">
+                    <button id="scanB" class="primary">Scan</button>
+                    <button id="copyB">Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="compare-actions">
+            <button id="swapButton">⇄ Swap</button>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Difference</h2>
+
+        <div id="diffResult" class="diff-result">
+            <div class="empty">Enter or scan two barcodes to compare them.</div>
+        </div>
+
+        <div id="summary" class="summary" hidden>
+            <div class="stat">
+                <div id="sameCount" class="stat-value">0</div>
+                <div class="stat-label">same positions</div>
+            </div>
+
+            <div class="stat">
+                <div id="changedCount" class="stat-value">0</div>
+                <div class="stat-label">changed positions</div>
+            </div>
+
+            <div class="stat">
+                <div id="prefixLength" class="stat-value">0</div>
+                <div class="stat-label">common prefix</div>
+            </div>
+
+            <div class="stat">
+                <div id="suffixLength" class="stat-value">0</div>
+                <div class="stat-label">common suffix</div>
+            </div>
+        </div>
+
+        <div id="analysis" class="analysis"></div>
+    </section>
+
+    <section class="panel">
+        <h2>Scan history</h2>
+        <div id="history" class="history">
+            <div class="empty">Nothing scanned yet.</div>
+        </div>
+    </section>
+
+    <div class="footer">
+        Barcode Toolbox
+    </div>
+</div>
+
+<div id="scanner" class="scanner">
+    <div class="scanner-header">
+        <strong>Scan barcode</strong>
+        <button id="closeScanner">Close</button>
+    </div>
+
+    <div class="scanner-container">
+        <video id="scannerVideo" autoplay muted playsinline></video>
+        <div class="scanner-frame"></div>
+    </div>
+
+    <div id="scannerStatus" class="scanner-status">
+        Centre the barcode and fill as much of the frame as practical.
+    </div>
+</div>
+
+<script>
+    const state = {
+        scannerTarget: null,
+        reader: null,
+        controls: null,
+        history: []
+    };
+
+    const els = {
+        valueA: document.getElementById("valueA"),
+        valueB: document.getElementById("valueB"),
+        formatA: document.getElementById("formatA"),
+        formatB: document.getElementById("formatB"),
+        diffResult: document.getElementById("diffResult"),
+        summary: document.getElementById("summary"),
+        sameCount: document.getElementById("sameCount"),
+        changedCount: document.getElementById("changedCount"),
+        prefixLength: document.getElementById("prefixLength"),
+        suffixLength: document.getElementById("suffixLength"),
+        analysis: document.getElementById("analysis"),
+        history: document.getElementById("history"),
+        scanner: document.getElementById("scanner"),
+        scannerVideo: document.getElementById("scannerVideo"),
+        scannerStatus: document.getElementById("scannerStatus")
+    };
+
+    const formatNames = new Map([
+        ["EAN_13", "EAN-13"],
+        ["EAN_8", "EAN-8"],
+        ["UPC_A", "UPC-A"],
+        ["UPC_E", "UPC-E"],
+        ["CODE_128", "Code 128"],
+        ["CODE_39", "Code 39"],
+        ["ITF", "ITF"],
+        ["QR_CODE", "QR Code"],
+        ["DATA_MATRIX", "Data Matrix"],
+        ["AZTEC", "Aztec"]
+    ]);
+
+    function escapeHtml(value) {
+        return value
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function checksumEan(value) {
+        if (!/^\d+$/.test(value)) {
+            return null;
+        }
+
+        if (![8, 12, 13].includes(value.length)) {
+            return null;
+        }
+
+        const body = value.slice(0, -1);
+        const supplied = Number(value[value.length - 1]);
+
+        let sum = 0;
+
+        for (let i = 0; i < body.length; i++) {
+            const digit = Number(body[i]);
+            const positionFromRight = body.length - i;
+
+            sum += positionFromRight % 2 === 1
+                ? digit * 3
+                : digit;
+        }
+
+        const expected = (10 - (sum % 10)) % 10;
+
+        return {
+            valid: supplied === expected,
+            supplied,
+            expected
+        };
+    }
+
+    function inferFormat(value) {
+        if (!value) {
+            return null;
+        }
+
+        if (/^\d{13}$/.test(value)) {
+            return "EAN-13";
+        }
+
+        if (/^\d{8}$/.test(value)) {
+            return "EAN-8";
+        }
+
+        if (/^\d{12}$/.test(value)) {
+            return "UPC-A / EAN-13 compatible";
+        }
+
+        return "Unknown";
+    }
+
+    function commonPrefix(a, b) {
+        const length = Math.min(a.length, b.length);
+
+        for (let i = 0; i < length; i++) {
+            if (a[i] !== b[i]) {
+                return i;
+            }
+        }
+
+        return length;
+    }
+
+    function commonSuffix(a, b) {
+        const length = Math.min(a.length, b.length);
+
+        for (let i = 1; i <= length; i++) {
+            if (a[a.length - i] !== b[b.length - i]) {
+                return i - 1;
+            }
+        }
+
+        return length;
+    }
+
+    function compareValues(a, b) {
+        const length = Math.max(a.length, b.length);
+
+        let same = 0;
+        let changed = 0;
+
+        for (let i = 0; i < length; i++) {
+            if (i < a.length && i < b.length && a[i] === b[i]) {
+                same++;
+            } else {
+                changed++;
+            }
+        }
+
+        return {
+            same,
+            changed,
+            prefix: commonPrefix(a, b),
+            suffix: commonSuffix(a, b)
+        };
+    }
+
+    function renderDiff(a, b) {
+        if (!a && !b) {
+            els.diffResult.innerHTML =
+                '<div class="empty">Enter or scan two barcodes to compare them.</div>';
+            els.summary.hidden = true;
+            els.analysis.textContent = "";
+            return;
+        }
+
+        const length = Math.max(a.length, b.length);
+
+        let rowA = "";
+        let rowB = "";
+
+        for (let i = 0; i < length; i++) {
+            const charA = a[i];
+            const charB = b[i];
+
+            if (charA === undefined) {
+                rowA += '<span class="digit missing">·</span>';
+            } else {
+                const cls = charA === charB ? "same" : "changed";
+                rowA += `<span class="digit ${cls}">${escapeHtml(charA)}</span>`;
+            }
+
+            if (charB === undefined) {
+                rowB += '<span class="digit missing">·</span>';
+            } else {
+                const cls = charA === charB ? "same" : "changed";
+                rowB += `<span class="digit ${cls}">${escapeHtml(charB)}</span>`;
+            }
+        }
+
+        els.diffResult.innerHTML = `
+            <div class="diff-row">
+                <div class="diff-label">A</div>
+                <div class="digits">${rowA}</div>
+            </div>
+            <div class="diff-row">
+                <div class="diff-label">B</div>
+                <div class="digits">${rowB}</div>
+            </div>
+        `;
+
+        const result = compareValues(a, b);
+
+        els.sameCount.textContent = result.same;
+        els.changedCount.textContent = result.changed;
+        els.prefixLength.textContent = result.prefix;
+        els.suffixLength.textContent = result.suffix;
+        els.summary.hidden = false;
+
+        renderAnalysis(a, b, result);
+    }
+
+    function renderAnalysis(a, b, result) {
+        const lines = [];
+
+        if (a.length !== b.length) {
+            lines.push(
+                `<strong>Length:</strong> A is ${a.length} characters, B is ${b.length}.`
+            );
+        } else {
+            lines.push(
+                `<strong>Length:</strong> both are ${a.length} characters.`
+            );
+        }
+
+        if (result.prefix > 0) {
+            lines.push(
+                `<strong>Common prefix:</strong> ${result.prefix} character${result.prefix === 1 ? "" : "s"}.`
+            );
+        }
+
+        if (result.suffix > 0) {
+            lines.push(
+                `<strong>Common suffix:</strong> ${result.suffix} character${result.suffix === 1 ? "" : "s"}.`
+            );
+        }
+
+        const checksumA = checksumEan(a);
+        const checksumB = checksumEan(b);
+
+        if (checksumA) {
+            lines.push(`
+                A checksum:
+                <span class="checksum ${checksumA.valid ? "" : "invalid"}">
+                    ${checksumA.valid ? "valid" : `invalid — expected ${checksumA.expected}`}
+                </span>
+            `);
+        }
+
+        if (checksumB) {
+            lines.push(`
+                B checksum:
+                <span class="checksum ${checksumB.valid ? "" : "invalid"}">
+                    ${checksumB.valid ? "valid" : `invalid — expected ${checksumB.expected}`}
+                </span>
+            `);
+        }
+
+        els.analysis.innerHTML = lines.join("<br>");
+    }
+
+    function update() {
+        const a = els.valueA.value.trim();
+        const b = els.valueB.value.trim();
+
+        els.formatA.textContent = inferFormat(a) || "—";
+        els.formatB.textContent = inferFormat(b) || "—";
+
+        renderDiff(a, b);
+    }
+
+    function setValue(target, value, format) {
+        const input = target === "A" ? els.valueA : els.valueB;
+        const formatElement = target === "A" ? els.formatA : els.formatB;
+
+        input.value = value;
+        formatElement.textContent =
+            formatNames.get(format) || format || inferFormat(value) || "Unknown";
+
+        update();
+    }
+
+    function addHistory(value, format) {
+        if (!value) {
+            return;
+        }
+
+        state.history.unshift({
+            value,
+            format: formatNames.get(format) || format || inferFormat(value) || "Unknown",
+            time: Date.now()
+        });
+
+        state.history = state.history.slice(0, 20);
+        renderHistory();
+    }
+
+    function renderHistory() {
+        if (!state.history.length) {
+            els.history.innerHTML =
+                '<div class="empty">Nothing scanned yet.</div>';
+            return;
+        }
+
+        els.history.innerHTML = state.history.map((item, index) => `
+            <div class="history-item">
+                <span class="history-value">${escapeHtml(item.value)}</span>
+                <span class="history-format">${escapeHtml(item.format)}</span>
+                <button data-history-index="${index}">Use</button>
+            </div>
+        `).join("");
+
+        els.history.querySelectorAll("[data-history-index]").forEach(button => {
+            button.addEventListener("click", () => {
+                const item = state.history[Number(button.dataset.historyIndex)];
+
+                if (!els.valueA.value) {
+                    setValue("A", item.value, item.format);
+                } else {
+                    setValue("B", item.value, item.format);
+                }
+            });
+        });
+    }
+
+    async function openScanner(target) {
+        if (!window.ZXingBrowser) {
+            els.scannerStatus.textContent = "Scanner library is still loading…";
+            return;
+        }
+
+        state.scannerTarget = target;
+        els.scanner.classList.add("visible");
+        els.scannerStatus.classList.remove("scanner-error");
+        els.scannerStatus.textContent =
+            "Centre the barcode and fill as much of the frame as practical.";
+
+        const {
+            BrowserMultiFormatReader,
+            BarcodeFormat
+        } = window.ZXingBrowser;
+
+        try {
+            const hints = new Map();
+
+            hints.set(
+                window.ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS,
+                [
+                    BarcodeFormat.EAN_13,
+                    BarcodeFormat.EAN_8,
+                    BarcodeFormat.UPC_A,
+                    BarcodeFormat.UPC_E,
+                    BarcodeFormat.CODE_128,
+                    BarcodeFormat.CODE_39,
+                    BarcodeFormat.ITF,
+                    BarcodeFormat.QR_CODE,
+                    BarcodeFormat.DATA_MATRIX,
+                    BarcodeFormat.AZTEC
+                ]
+            );
+
+            state.reader = new BrowserMultiFormatReader(hints);
+
+            state.controls = await state.reader.decodeFromConstraints(
+                {
+                    video: {
+                        facingMode: { ideal: "environment" }
+                    }
+                },
+                els.scannerVideo,
+                (result, error) => {
+                    if (!result) {
+                        return;
+                    }
+
+                    const text = result.getText();
+                    const format = result.getBarcodeFormat();
+
+                    const formatName =
+                        Object.entries(BarcodeFormat)
+                            .find(([, value]) => value === format)?.[0]
+                        || "Unknown";
+
+                    setValue(state.scannerTarget, text, formatName);
+                    addHistory(text, formatName);
+                    closeScanner();
+                }
+            );
+        } catch (error) {
+            console.error(error);
+
+            els.scannerStatus.textContent =
+                "Unable to start the camera. Check camera permission and try again.";
+            els.scannerStatus.classList.add("scanner-error");
+        }
+    }
+
+    function closeScanner() {
+        if (state.controls) {
+            state.controls.stop();
+            state.controls = null;
+        }
+
+        if (state.reader) {
+            state.reader = null;
+        }
+
+        if (els.scannerVideo.srcObject) {
+            els.scannerVideo.srcObject
+                .getTracks()
+                .forEach(track => track.stop());
+
+            els.scannerVideo.srcObject = null;
+        }
+
+        els.scanner.classList.remove("visible");
+    }
+
+    async function copyText(value) {
+        if (!value) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(value);
+        } catch {
+            const textarea = document.createElement("textarea");
+            textarea.value = value;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            textarea.remove();
+        }
+    }
+
+    document.getElementById("scanA").addEventListener(
+        "click",
+        () => openScanner("A")
+    );
+
+    document.getElementById("scanB").addEventListener(
+        "click",
+        () => openScanner("B")
+    );
+
+    document.getElementById("closeScanner").addEventListener(
+        "click",
+        closeScanner
+    );
+
+    document.getElementById("swapButton").addEventListener("click", () => {
+        const a = els.valueA.value;
+        const b = els.valueB.value;
+
+        els.valueA.value = b;
+        els.valueB.value = a;
+
+        update();
+    });
+
+    document.getElementById("clearButton").addEventListener("click", () => {
+        els.valueA.value = "";
+        els.valueB.value = "";
+        update();
+    });
+
+    document.getElementById("copyA").addEventListener(
+        "click",
+        () => copyText(els.valueA.value)
+    );
+
+    document.getElementById("copyB").addEventListener(
+        "click",
+        () => copyText(els.valueB.value)
+    );
+
+    els.valueA.addEventListener("input", update);
+    els.valueB.addEventListener("input", update);
+
+    window.addEventListener("zxing-ready", () => {
+        els.scannerStatus.textContent =
+            "Centre the barcode and fill as much of the frame as practical.";
+    });
+
+    update();
+</script>
+</body>
+</html>
