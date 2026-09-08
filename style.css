@@ -1,0 +1,547 @@
+:root {
+    color-scheme: dark;
+
+    --bg: #111;
+    --surface: #1c1c1c;
+    --surface-2: #252525;
+    --text: #f5f5f5;
+    --muted: #aaa;
+    --border: #333;
+    --accent: #4caf70;
+    --danger: #d9534f;
+}
+
+:root.light {
+    color-scheme: light;
+
+    --bg: #f4f4f4;
+    --surface: #fff;
+    --surface-2: #eee;
+    --text: #111;
+    --muted: #666;
+    --border: #d5d5d5;
+    --accent: #287842;
+    --danger: #c62828;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+body {
+    min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.app {
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    padding:
+        env(safe-area-inset-top)
+        16px
+        calc(16px + env(safe-area-inset-bottom));
+}
+
+/* Header */
+
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0 18px;
+}
+
+.app-header h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.icon-button,
+.back-button {
+    border: 0;
+    background: transparent;
+    color: var(--text);
+}
+
+.icon-button {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    font-size: 22px;
+}
+
+.icon-button:hover,
+.back-button:hover {
+    background: var(--surface-2);
+}
+
+/* Cards */
+
+.card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.card-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    min-height: 72px;
+}
+
+.card-colour {
+    width: 8px;
+    align-self: stretch;
+    border-radius: 5px;
+    flex-shrink: 0;
+}
+
+.card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.card-name {
+    font-weight: 650;
+    font-size: 17px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card-type {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 2px;
+}
+
+.card-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.card-action {
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    font-size: 19px;
+}
+
+.card-action:hover {
+    background: var(--surface-2);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px 30px;
+    color: var(--muted);
+}
+
+.empty-icon {
+    font-size: 44px;
+    margin-bottom: 10px;
+}
+
+.empty-state h2 {
+    color: var(--text);
+    margin: 0 0 6px;
+}
+
+.empty-state p {
+    margin: 0;
+}
+
+/* Buttons */
+
+.main-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.primary-button,
+.secondary-button,
+.danger-button {
+    min-height: 46px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-weight: 600;
+}
+
+.primary-button {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.secondary-button {
+    background: var(--surface);
+    color: var(--text);
+}
+
+.danger-button {
+    background: transparent;
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+.main-actions > button {
+    flex: 1;
+}
+
+.small-button {
+    min-height: 44px;
+    padding: 8px 13px;
+}
+
+/* Forms */
+
+.screen {
+    padding-bottom: 30px;
+}
+
+.screen-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0 24px;
+}
+
+.screen-header h2 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.back-button {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    font-size: 34px;
+    line-height: 1;
+}
+
+#cardForm {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    font-weight: 600;
+}
+
+input[type="text"],
+select,
+.import-textarea {
+    width: 100%;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 12px;
+    outline: none;
+}
+
+input[type="text"]:focus,
+select:focus,
+.import-textarea:focus {
+    border-color: var(--accent);
+}
+
+input[type="color"] {
+    width: 70px;
+    height: 44px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+
+.code-input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.code-input-row input {
+    flex: 1;
+}
+
+.form-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+/* Import / Export */
+
+.transfer-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
+}
+
+.transfer-section h3 {
+    margin: 0 0 6px;
+    font-size: 17px;
+}
+
+.transfer-section p {
+    margin: 0 0 14px;
+    color: var(--muted);
+    line-height: 1.45;
+    font-size: 14px;
+}
+
+.transfer-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.transfer-actions > button {
+    flex: 1;
+}
+
+.import-textarea {
+    min-height: 190px;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.transfer-status {
+    padding: 12px;
+    border-radius: 9px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+
+/* Scanner */
+
+.scanner-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: #000;
+    padding:
+        env(safe-area-inset-top)
+        16px
+        env(safe-area-inset-bottom);
+    max-width: none;
+}
+
+.scanner-header {
+    margin: 0;
+}
+
+.scanner-header h2 {
+    color: white;
+}
+
+.scanner-container {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto 0;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+#scannerVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.scanner-frame {
+    position: absolute;
+    inset: 15%;
+    border: 2px solid white;
+    border-radius: 10px;
+    box-shadow: 0 0 0 9999px rgb(0 0 0 / 35%);
+}
+
+.scanner-status {
+    text-align: center;
+    color: white;
+    margin: 18px auto;
+}
+
+/* Fullscreen viewer */
+
+.viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: #fff;
+    color: #000;
+
+    display: flex;
+    flex-direction: column;
+
+    padding:
+        env(safe-area-inset-top)
+        12px
+        env(safe-area-inset-bottom);
+
+    --viewer-accent: #2d7d46;
+}
+
+.viewer-top {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    min-height: 48px;
+    padding: 2px 0;
+}
+
+.viewer-top span {
+    font-size: 17px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 8px;
+}
+
+.viewer-button {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #111;
+
+    font-size: 27px;
+}
+
+.viewer-button:hover {
+    background: #eee;
+}
+
+.viewer-code-container {
+    flex: 1 1 auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /*
+     * Deliberately tight: the code gets almost all of the available
+     * screen rather than sitting in a large padded box.
+     */
+    min-height: 0;
+    padding: 4px 2px;
+    overflow: hidden;
+}
+
+#viewerCode {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.viewer-bottom {
+    flex: 0 0 auto;
+
+    display: flex;
+    gap: 8px;
+
+    padding: 6px 0;
+}
+
+.viewer-action {
+    flex: 1;
+    min-height: 42px;
+
+    border: 1px solid #ccc;
+    border-radius: 9px;
+    background: #f5f5f5;
+    color: #111;
+
+    font-weight: 600;
+}
+
+.viewer-action.danger {
+    color: #b00020;
+}
+
+/*
+ * For linear barcodes bwip-js can produce a fairly wide canvas.
+ * Let it become as large as possible while retaining a small margin.
+ */
+.viewer-code-container canvas {
+    max-width: min(98vw, 900px);
+    max-height: calc(100vh - 120px);
+}
+
+/* Desktop */
+
+@media (min-width: 700px) {
+    .app {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+
+    .form-actions {
+        flex-direction: row;
+    }
+
+    .form-actions > button {
+        flex: 1;
+    }
+}
