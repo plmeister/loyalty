@@ -1,4 +1,3 @@
-```javascript
 import {
   BrowserMultiFormatReader,
   BarcodeFormat
@@ -756,4 +755,3 @@ document.addEventListener("visibilitychange", async () => {
 
 loadTheme();
 renderCards();
-```
