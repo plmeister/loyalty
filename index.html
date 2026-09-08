@@ -1,181 +1,219 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-  <meta name="theme-color" content="#111111">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="theme-color" content="#111111">
+    <title>Loyalty Cards</title>
 
-  <title>My Cards</title>
+    <link rel="stylesheet" href="style.css">
 
-  <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/bwip-js@4.8.0/dist/bwip-js-min.js"></script>
+
+    <script type="module">
+        import {
+            BrowserMultiFormatReader,
+            BarcodeFormat
+        } from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
+
+        window.ZXing = {
+            BrowserMultiFormatReader,
+            BarcodeFormat
+        };
+    </script>
 </head>
 
 <body>
-  <header class="app-header">
-    <h1>My Cards</h1>
+<div class="app">
 
-    <button
-      id="themeToggle"
-      class="icon-button"
-      type="button"
-      aria-label="Toggle light/dark theme"
-    >☀️</button>
-  </header>
+    <header class="app-header">
+        <h1>Loyalty Cards</h1>
 
-  <main>
-    <div class="toolbar">
-      <button id="addCardButton" class="primary-button" type="button">
-        + Add Card
-      </button>
-    </div>
-
-    <section id="cardList" class="card-list"></section>
-
-    <div id="emptyState" class="empty-state hidden">
-      <div class="empty-icon">▤</div>
-      <h2>No cards yet</h2>
-      <p>Add a loyalty card and its barcode will be stored on this device.</p>
-    </div>
-  </main>
-
-  <!-- Add / edit card modal -->
-  <div id="cardModal" class="modal hidden">
-    <div class="modal-backdrop"></div>
-
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="modalTitle">Add Card</h2>
-        <button id="closeCardModal" class="icon-button" type="button">×</button>
-      </div>
-
-      <form id="cardForm">
-        <input type="hidden" id="cardId">
-
-        <label>
-          Card name
-          <input
-            id="cardName"
-            type="text"
-            placeholder="e.g. Lidl"
-            autocomplete="off"
-            required
-          >
-        </label>
-
-        <label>
-          Barcode / QR code
-          <div class="input-with-button">
-            <input
-              id="cardCode"
-              type="text"
-              placeholder="Scan or enter code"
-              autocomplete="off"
-              required
-            >
-
-            <button id="scanButton" class="secondary-button" type="button">
-              Scan
+        <div class="header-actions">
+            <button id="themeButton" class="icon-button" aria-label="Toggle theme">
+                ◐
             </button>
-          </div>
-        </label>
-
-        <label>
-          Code type
-          <select id="cardType">
-            <option value="EAN13">EAN-13</option>
-            <option value="EAN8">EAN-8</option>
-            <option value="UPC">UPC-A</option>
-            <option value="CODE128">Code 128</option>
-            <option value="QR">QR Code</option>
-          </select>
-        </label>
-
-        <label>
-          Card colour
-          <input id="cardColour" type="color" value="#2d7d46">
-        </label>
-
-        <div class="form-actions">
-          <button id="cancelCardButton" class="secondary-button" type="button">
-            Cancel
-          </button>
-
-          <button class="primary-button" type="submit">
-            Save Card
-          </button>
         </div>
-      </form>
-    </div>
-  </div>
+    </header>
 
-  <!-- Scanner modal -->
-  <div id="scannerModal" class="modal scanner-modal hidden">
-    <div class="modal-backdrop"></div>
+    <main id="cardListScreen">
+        <div id="cardList" class="card-list"></div>
 
-    <div class="scanner-content">
-      <div class="scanner-header">
-        <h2>Scan Code</h2>
-
-        <button id="closeScannerButton" class="icon-button" type="button">
-          ×
-        </button>
-      </div>
-
-      <div class="scanner-video-container">
-        <video
-          id="scannerVideo"
-          autoplay
-          muted
-          playsinline
-        ></video>
-
-        <div class="scanner-overlay">
-          <div class="scanner-frame"></div>
+        <div id="emptyState" class="empty-state hidden">
+            <div class="empty-icon">▤</div>
+            <h2>No cards yet</h2>
+            <p>Add a loyalty card to get started.</p>
         </div>
-      </div>
 
-      <p id="scannerStatus" class="scanner-status">
-        Point the camera at a barcode or QR code.
-      </p>
-    </div>
-  </div>
+        <div class="main-actions">
+            <button id="addCardButton" class="primary-button">
+                + Add Card
+            </button>
 
-  <!-- Fullscreen card viewer -->
-  <div id="viewer" class="viewer hidden">
-    <button id="closeViewerButton" class="viewer-close" type="button">
-      ×
-    </button>
+            <button id="importExportButton" class="secondary-button">
+                ↕ Import / Export
+            </button>
+        </div>
+    </main>
 
-    <div class="viewer-card-name" id="viewerCardName"></div>
+    <!-- Add / Edit -->
+    <section id="editScreen" class="screen hidden">
+        <header class="screen-header">
+            <button id="editBackButton" class="back-button">‹</button>
+            <h2 id="editTitle">Add Card</h2>
+        </header>
 
-    <div class="viewer-code-container">
-      <svg id="viewerBarcode"></svg>
-      <canvas id="viewerQr"></canvas>
-    </div>
+        <form id="cardForm">
+            <label>
+                Card name
+                <input id="cardName" type="text" autocomplete="off"
+                       placeholder="e.g. Lidl" required>
+            </label>
 
-    <div class="viewer-code-value" id="viewerCodeValue"></div>
+            <label>
+                Card number
+                <div class="code-input-row">
+                    <input id="cardCode" type="text" inputmode="numeric"
+                           autocomplete="off" required>
 
-    <div class="viewer-actions">
-      <button id="editViewerButton" class="secondary-button" type="button">
-        Edit
-      </button>
+                    <button type="button" id="scanButton"
+                            class="secondary-button small-button">
+                        Scan
+                    </button>
+                </div>
+            </label>
 
-      <button id="deleteViewerButton" class="danger-button" type="button">
-        Delete
-      </button>
-    </div>
-  </div>
+            <label>
+                Barcode type
+                <select id="cardType">
+                    <option value="EAN13">EAN-13</option>
+                    <option value="EAN8">EAN-8</option>
+                    <option value="UPC">UPC-A</option>
+                    <option value="CODE128">Code 128</option>
+                    <option value="QR">QR Code</option>
+                    <option value="DATAMATRIX">Data Matrix</option>
+                    <option value="AZTEC">Aztec</option>
+                </select>
+            </label>
 
-  <!-- JsBarcode for conventional barcodes -->
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+            <label>
+                Card colour
+                <input id="cardColour" type="color" value="#2d7d46">
+            </label>
 
-  <!-- QRCode.js for QR rendering -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+            <div class="form-actions">
+                <button type="submit" class="primary-button">
+                    Save Card
+                </button>
 
-  <!-- Application -->
-  <script type="module" src="app.js"></script>
+                <button type="button" id="deleteCardButton"
+                        class="danger-button hidden">
+                    Delete Card
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Import / Export -->
+    <section id="transferScreen" class="screen hidden">
+        <header class="screen-header">
+            <button id="transferBackButton" class="back-button">‹</button>
+            <h2>Import / Export</h2>
+        </header>
+
+        <div class="transfer-section">
+            <h3>Export all cards</h3>
+            <p>
+                Copy or share your complete card collection. You can keep it
+                somewhere safe or send it to another device.
+            </p>
+
+            <div class="transfer-actions">
+                <button id="copyAllButton" class="secondary-button">
+                    Copy all
+                </button>
+
+                <button id="shareAllButton" class="secondary-button">
+                    Share all
+                </button>
+            </div>
+        </div>
+
+        <div class="transfer-section">
+            <h3>Import cards</h3>
+            <p>
+                Paste a card definition or a complete collection below.
+            </p>
+
+            <textarea id="importText"
+                      class="import-textarea"
+                      spellcheck="false"
+                      placeholder="Paste card definition here..."></textarea>
+
+            <div class="transfer-actions">
+                <button id="pasteButton" class="secondary-button">
+                    Paste from clipboard
+                </button>
+
+                <button id="importButton" class="primary-button">
+                    Import
+                </button>
+            </div>
+        </div>
+
+        <div id="transferStatus" class="transfer-status hidden"></div>
+    </section>
+
+    <!-- Scanner -->
+    <section id="scannerScreen" class="screen scanner-screen hidden">
+        <header class="screen-header scanner-header">
+            <button id="scannerBackButton" class="back-button">‹</button>
+            <h2>Scan barcode</h2>
+        </header>
+
+        <div class="scanner-container">
+            <video id="scannerVideo" autoplay muted playsinline></video>
+            <div class="scanner-frame"></div>
+        </div>
+
+        <p id="scannerStatus" class="scanner-status">
+            Point the camera at the barcode.
+        </p>
+    </section>
+
+    <!-- Fullscreen viewer -->
+    <section id="viewerScreen" class="viewer hidden">
+        <div class="viewer-top">
+            <button id="viewerBackButton" class="viewer-button">
+                ‹
+            </button>
+
+            <span id="viewerName"></span>
+
+            <button id="viewerShareButton" class="viewer-button">
+                ↗
+            </button>
+        </div>
+
+        <div id="viewerCodeContainer" class="viewer-code-container">
+            <canvas id="viewerCode"></canvas>
+        </div>
+
+        <div class="viewer-bottom">
+            <button id="viewerEditButton" class="viewer-action">
+                Edit
+            </button>
+
+            <button id="viewerDeleteButton" class="viewer-action danger">
+                Delete
+            </button>
+        </div>
+    </section>
+
+</div>
+
+<script type="module" src="app.js"></script>
 </body>
 </html>
