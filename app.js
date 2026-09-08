@@ -186,7 +186,9 @@ function openViewer(id) {
     }
 
     viewingId = id;
+
     viewerName.textContent = card.name;
+
     viewerScreen.style.setProperty(
         "--viewer-accent",
         card.colour || "#2d7d46"
@@ -235,6 +237,7 @@ function renderCards() {
         share.className = "card-action";
         share.textContent = "↗";
         share.title = "Share card";
+
         share.addEventListener("click", event => {
             event.stopPropagation();
             shareCard(card);
@@ -244,6 +247,7 @@ function renderCards() {
         edit.className = "card-action";
         edit.textContent = "✎";
         edit.title = "Edit card";
+
         edit.addEventListener("click", event => {
             event.stopPropagation();
             openEditCard(card.id);
@@ -332,6 +336,7 @@ viewerDeleteButton.addEventListener("click", () => {
     }
 
     cards = cards.filter(c => c.id !== viewingId);
+
     saveCards();
     showList();
 });
@@ -355,17 +360,19 @@ function renderCode(card) {
 
     const is2D = ["QR", "DATAMATRIX", "AZTEC"].includes(card.type);
 
-    /*
-     * Keep linear barcodes relatively short vertically while allowing
-     * 2D codes to use more of the available screen.
-     */
     const options = {
         bcid: type.bwip,
         text: card.code,
         scale: is2D ? 5 : 4,
         includetext: false,
+
+        /*
+         * The surrounding CSS container supplies the quiet zone.
+         * Keep the generated barcode itself tight.
+         */
         paddingwidth: 0,
         paddingheight: 0,
+
         backgroundcolor: "FFFFFF"
     };
 
@@ -504,13 +511,16 @@ async function copyText(text) {
     }
 
     const textarea = document.createElement("textarea");
+
     textarea.value = text;
     textarea.style.position = "fixed";
     textarea.style.opacity = "0";
 
     document.body.appendChild(textarea);
+
     textarea.select();
     document.execCommand("copy");
+
     textarea.remove();
 }
 
@@ -524,10 +534,6 @@ async function shareText(title, text) {
 
             return true;
         } catch (error) {
-            /*
-             * AbortError means the user simply closed the share sheet.
-             * Don't report that as an error.
-             */
             if (error?.name === "AbortError") {
                 return true;
             }
@@ -666,7 +672,7 @@ async function startScanner() {
     showScreen(scannerScreen);
 
     scannerStatus.textContent =
-        "Point the camera at the barcode.";
+        "Centre the barcode and fill as much of the frame as practical.";
 
     try {
         scannerReader = new window.ZXing.BrowserMultiFormatReader();
