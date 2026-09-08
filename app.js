@@ -1,757 +1,858 @@
-import {
-  BrowserMultiFormatReader,
-  BarcodeFormat
-} from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
-
-
 const STORAGE_KEY = "my-loyalty-cards-v1";
 const THEME_KEY = "my-loyalty-cards-theme";
 
+const CARD_TYPES = {
+    EAN13: {
+        label: "EAN-13",
+        bwip: "ean13"
+    },
+    EAN8: {
+        label: "EAN-8",
+        bwip: "ean8"
+    },
+    UPC: {
+        label: "UPC-A",
+        bwip: "upca"
+    },
+    CODE128: {
+        label: "Code 128",
+        bwip: "code128"
+    },
+    QR: {
+        label: "QR Code",
+        bwip: "qrcode"
+    },
+    DATAMATRIX: {
+        label: "Data Matrix",
+        bwip: "datamatrix"
+    },
+    AZTEC: {
+        label: "Aztec",
+        bwip: "azteccode"
+    }
+};
+
 let cards = loadCards();
+let editingId = null;
+let viewingId = null;
 
 let scannerReader = null;
-let scannerControls = null;
-
+let scannerStream = null;
+let scanning = false;
 let wakeLock = null;
-let currentViewerCardId = null;
 
+/* ------------------------------------------------------------------
+   Storage
+------------------------------------------------------------------ */
 
-/* -------------------------------------------------------------------------- */
-/* DOM                                                                         */
-/* -------------------------------------------------------------------------- */
+function loadCards() {
+    try {
+        const value = JSON.parse(localStorage.getItem(STORAGE_KEY));
+
+        if (!Array.isArray(value)) {
+            return [];
+        }
+
+        return value;
+    } catch {
+        return [];
+    }
+}
+
+function saveCards() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+}
+
+/* ------------------------------------------------------------------
+   DOM
+------------------------------------------------------------------ */
+
+const cardListScreen = document.getElementById("cardListScreen");
+const editScreen = document.getElementById("editScreen");
+const transferScreen = document.getElementById("transferScreen");
+const scannerScreen = document.getElementById("scannerScreen");
+const viewerScreen = document.getElementById("viewerScreen");
 
 const cardList = document.getElementById("cardList");
 const emptyState = document.getElementById("emptyState");
 
-const cardModal = document.getElementById("cardModal");
-const modalTitle = document.getElementById("modalTitle");
-const cardForm = document.getElementById("cardForm");
+const addCardButton = document.getElementById("addCardButton");
+const importExportButton = document.getElementById("importExportButton");
+const themeButton = document.getElementById("themeButton");
 
-const cardId = document.getElementById("cardId");
+const editBackButton = document.getElementById("editBackButton");
+const editTitle = document.getElementById("editTitle");
+
+const cardForm = document.getElementById("cardForm");
 const cardName = document.getElementById("cardName");
 const cardCode = document.getElementById("cardCode");
 const cardType = document.getElementById("cardType");
 const cardColour = document.getElementById("cardColour");
+const scanButton = document.getElementById("scanButton");
+const deleteCardButton = document.getElementById("deleteCardButton");
 
-const scannerModal = document.getElementById("scannerModal");
+const transferBackButton = document.getElementById("transferBackButton");
+const copyAllButton = document.getElementById("copyAllButton");
+const shareAllButton = document.getElementById("shareAllButton");
+const pasteButton = document.getElementById("pasteButton");
+const importButton = document.getElementById("importButton");
+const importText = document.getElementById("importText");
+const transferStatus = document.getElementById("transferStatus");
+
+const scannerBackButton = document.getElementById("scannerBackButton");
 const scannerVideo = document.getElementById("scannerVideo");
 const scannerStatus = document.getElementById("scannerStatus");
 
-const viewer = document.getElementById("viewer");
-const viewerCardName = document.getElementById("viewerCardName");
-const viewerBarcode = document.getElementById("viewerBarcode");
-const viewerQr = document.getElementById("viewerQr");
-const viewerCodeValue = document.getElementById("viewerCodeValue");
+const viewerBackButton = document.getElementById("viewerBackButton");
+const viewerShareButton = document.getElementById("viewerShareButton");
+const viewerName = document.getElementById("viewerName");
+const viewerCode = document.getElementById("viewerCode");
+const viewerEditButton = document.getElementById("viewerEditButton");
+const viewerDeleteButton = document.getElementById("viewerDeleteButton");
 
+/* ------------------------------------------------------------------
+   Screens
+------------------------------------------------------------------ */
 
-/* -------------------------------------------------------------------------- */
-/* Theme                                                                       */
-/* -------------------------------------------------------------------------- */
+function showScreen(screen) {
+    [
+        cardListScreen,
+        editScreen,
+        transferScreen,
+        scannerScreen,
+        viewerScreen
+    ].forEach(element => element.classList.add("hidden"));
 
-function loadTheme() {
-  const saved = localStorage.getItem(THEME_KEY);
-
-  if (saved === "light" || saved === "dark") {
-    document.documentElement.dataset.theme = saved;
-  } else {
-    document.documentElement.dataset.theme = "dark";
-  }
-
-  updateThemeButton();
+    screen.classList.remove("hidden");
 }
 
-function toggleTheme() {
-  const current =
-    document.documentElement.dataset.theme === "light"
-      ? "light"
-      : "dark";
+function showList() {
+    stopScanner();
+    releaseWakeLock();
 
-  const next = current === "dark" ? "light" : "dark";
+    viewingId = null;
+    editingId = null;
 
-  document.documentElement.dataset.theme = next;
-
-  localStorage.setItem(THEME_KEY, next);
-
-  updateThemeButton();
+    showScreen(cardListScreen);
+    renderCards();
 }
-
-function updateThemeButton() {
-  const button = document.getElementById("themeToggle");
-
-  const isLight =
-    document.documentElement.dataset.theme === "light";
-
-  button.textContent = isLight ? "🌙" : "☀️";
-  button.setAttribute(
-    "aria-label",
-    isLight
-      ? "Switch to dark theme"
-      : "Switch to light theme"
-  );
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* Storage                                                                      */
-/* -------------------------------------------------------------------------- */
-
-function loadCards() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw);
-
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCards() {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify(cards)
-  );
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* Rendering                                                                    */
-/* -------------------------------------------------------------------------- */
-
-function renderCards() {
-  cardList.innerHTML = "";
-
-  emptyState.classList.toggle(
-    "hidden",
-    cards.length !== 0
-  );
-
-  for (const card of cards) {
-    const element = document.createElement("article");
-
-    element.className = "card-item";
-
-    element.innerHTML = `
-      <div
-        class="card-colour"
-        style="background:${escapeHtml(card.colour)}"
-      ></div>
-
-      <div class="card-info">
-        <div class="card-name">
-          ${escapeHtml(card.name)}
-        </div>
-
-        <div class="card-code">
-          ${escapeHtml(formatTypeName(card.type))}
-          ·
-          ${escapeHtml(card.code)}
-        </div>
-      </div>
-
-      <div class="card-buttons">
-        <button
-          type="button"
-          class="view-card-button"
-          data-id="${escapeHtml(card.id)}"
-          aria-label="Show card"
-        >▣</button>
-
-        <button
-          type="button"
-          class="edit-card-button"
-          data-id="${escapeHtml(card.id)}"
-          aria-label="Edit card"
-        >✎</button>
-      </div>
-    `;
-
-    cardList.appendChild(element);
-  }
-}
-
-function formatTypeName(type) {
-  switch (type) {
-    case "EAN13":
-      return "EAN-13";
-
-    case "EAN8":
-      return "EAN-8";
-
-    case "UPC":
-      return "UPC-A";
-
-    case "CODE128":
-      return "Code 128";
-
-    case "QR":
-      return "QR Code";
-
-    default:
-      return type;
-  }
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* Add / edit cards                                                             */
-/* -------------------------------------------------------------------------- */
 
 function openAddCard() {
-  modalTitle.textContent = "Add Card";
+    editingId = null;
 
-  cardId.value = "";
-  cardName.value = "";
-  cardCode.value = "";
-  cardType.value = "EAN13";
-  cardColour.value = "#2d7d46";
+    editTitle.textContent = "Add Card";
+    deleteCardButton.classList.add("hidden");
 
-  cardModal.classList.remove("hidden");
+    cardName.value = "";
+    cardCode.value = "";
+    cardType.value = "EAN13";
+    cardColour.value = "#2d7d46";
 
-  setTimeout(() => cardName.focus(), 50);
+    showScreen(editScreen);
+    cardName.focus();
 }
 
 function openEditCard(id) {
-  const card = cards.find(c => c.id === id);
+    const card = cards.find(c => c.id === id);
 
-  if (!card) {
-    return;
-  }
+    if (!card) {
+        return;
+    }
 
-  modalTitle.textContent = "Edit Card";
+    editingId = id;
 
-  cardId.value = card.id;
-  cardName.value = card.name;
-  cardCode.value = card.code;
-  cardType.value = card.type;
-  cardColour.value = card.colour || "#2d7d46";
+    editTitle.textContent = "Edit Card";
+    deleteCardButton.classList.remove("hidden");
 
-  cardModal.classList.remove("hidden");
+    cardName.value = card.name;
+    cardCode.value = card.code;
+    cardType.value = card.type;
+    cardColour.value = card.colour || "#2d7d46";
+
+    showScreen(editScreen);
 }
 
-function closeCardModal() {
-  cardModal.classList.add("hidden");
+function openTransfer() {
+    importText.value = "";
+    transferStatus.classList.add("hidden");
+    showScreen(transferScreen);
 }
 
-function saveCardFromForm(event) {
-  event.preventDefault();
+function openViewer(id) {
+    const card = cards.find(c => c.id === id);
 
-  const id = cardId.value || crypto.randomUUID();
+    if (!card) {
+        return;
+    }
 
-  const card = {
-    id,
-    name: cardName.value.trim(),
-    code: cardCode.value.trim(),
-    type: cardType.value,
-    colour: cardColour.value
-  };
+    viewingId = id;
+    viewerName.textContent = card.name;
+    viewerScreen.style.setProperty(
+        "--viewer-accent",
+        card.colour || "#2d7d46"
+    );
 
-  if (!card.name || !card.code) {
-    return;
-  }
-
-  const existingIndex = cards.findIndex(
-    existing => existing.id === id
-  );
-
-  if (existingIndex >= 0) {
-    cards[existingIndex] = card;
-  } else {
-    cards.push(card);
-  }
-
-  saveCards();
-  renderCards();
-  closeCardModal();
+    showScreen(viewerScreen);
+    renderCode(card);
+    requestWakeLock();
 }
 
+/* ------------------------------------------------------------------
+   Card list
+------------------------------------------------------------------ */
 
-/* -------------------------------------------------------------------------- */
-/* Scanner                                                                      */
-/* -------------------------------------------------------------------------- */
+function renderCards() {
+    cardList.innerHTML = "";
 
-async function openScanner() {
-  scannerStatus.textContent =
-    "Point the camera at a barcode or QR code.";
+    emptyState.classList.toggle("hidden", cards.length !== 0);
 
-  scannerModal.classList.remove("hidden");
+    for (const card of cards) {
+        const row = document.createElement("div");
+        row.className = "card-row";
 
-  try {
-    await startScanner();
-  } catch (error) {
-    console.error(error);
+        const colour = document.createElement("div");
+        colour.className = "card-colour";
+        colour.style.background = card.colour || "#2d7d46";
 
-    scannerStatus.textContent =
-      getScannerErrorMessage(error);
-  }
+        const info = document.createElement("div");
+        info.className = "card-info";
+        info.addEventListener("click", () => openViewer(card.id));
+
+        const name = document.createElement("div");
+        name.className = "card-name";
+        name.textContent = card.name;
+
+        const type = document.createElement("div");
+        type.className = "card-type";
+        type.textContent = CARD_TYPES[card.type]?.label || card.type;
+
+        info.append(name, type);
+
+        const actions = document.createElement("div");
+        actions.className = "card-actions";
+
+        const share = document.createElement("button");
+        share.className = "card-action";
+        share.textContent = "↗";
+        share.title = "Share card";
+        share.addEventListener("click", event => {
+            event.stopPropagation();
+            shareCard(card);
+        });
+
+        const edit = document.createElement("button");
+        edit.className = "card-action";
+        edit.textContent = "✎";
+        edit.title = "Edit card";
+        edit.addEventListener("click", event => {
+            event.stopPropagation();
+            openEditCard(card.id);
+        });
+
+        actions.append(share, edit);
+        row.append(colour, info, actions);
+
+        cardList.appendChild(row);
+    }
 }
 
-async function startScanner() {
-  stopScanner();
+/* ------------------------------------------------------------------
+   Card editing
+------------------------------------------------------------------ */
 
-  scannerReader = new BrowserMultiFormatReader();
+cardForm.addEventListener("submit", event => {
+    event.preventDefault();
 
-  /*
-   * Restrict recognition to formats useful for loyalty cards.
-   *
-   * Importantly, BarcodeFormat is the actual ZXing enum. Comparing against
-   * stringified enum values is unreliable because the enum values are
-   * numeric internally.
-   */
-  scannerReader.possibleFormats = [
-    BarcodeFormat.EAN_13,
-    BarcodeFormat.EAN_8,
-    BarcodeFormat.UPC_A,
-    BarcodeFormat.CODE_128,
-    BarcodeFormat.QR_CODE
-  ];
+    const name = cardName.value.trim();
+    const code = cardCode.value.trim();
+    const type = cardType.value;
+    const colour = cardColour.value;
 
-  const devices =
-    await BrowserMultiFormatReader.listVideoInputDevices();
+    if (!name || !code || !CARD_TYPES[type]) {
+        return;
+    }
 
-  if (!devices || devices.length === 0) {
-    throw new Error("No camera found.");
-  }
+    if (editingId) {
+        const card = cards.find(c => c.id === editingId);
 
-  /*
-   * Prefer the rear-facing camera on phones.
-   */
-  const preferredDevice =
-    devices.find(device =>
-      /back|rear|environment/i.test(device.label)
-    ) || devices[devices.length - 1];
+        if (card) {
+            card.name = name;
+            card.code = code;
+            card.type = type;
+            card.colour = colour;
+        }
+    } else {
+        cards.push({
+            id: crypto.randomUUID(),
+            name,
+            code,
+            type,
+            colour
+        });
+    }
 
-  const deviceId = preferredDevice.deviceId;
+    saveCards();
+    showList();
+});
 
-  scannerStatus.textContent =
-    "Point the camera at a barcode or QR code.";
+deleteCardButton.addEventListener("click", () => {
+    if (!editingId) {
+        return;
+    }
 
-  scannerControls =
-    await scannerReader.decodeFromVideoDevice(
-      deviceId,
-      scannerVideo,
-      (result, error) => {
-        if (!result) {
-          return;
+    const card = cards.find(c => c.id === editingId);
+
+    if (!card) {
+        return;
+    }
+
+    if (!confirm(`Delete "${card.name}"?`)) {
+        return;
+    }
+
+    cards = cards.filter(c => c.id !== editingId);
+
+    saveCards();
+    showList();
+});
+
+viewerDeleteButton.addEventListener("click", () => {
+    if (!viewingId) {
+        return;
+    }
+
+    const card = cards.find(c => c.id === viewingId);
+
+    if (!card) {
+        return;
+    }
+
+    if (!confirm(`Delete "${card.name}"?`)) {
+        return;
+    }
+
+    cards = cards.filter(c => c.id !== viewingId);
+    saveCards();
+    showList();
+});
+
+viewerEditButton.addEventListener("click", () => {
+    if (viewingId) {
+        openEditCard(viewingId);
+    }
+});
+
+/* ------------------------------------------------------------------
+   Barcode rendering
+------------------------------------------------------------------ */
+
+function renderCode(card) {
+    const type = CARD_TYPES[card.type];
+
+    if (!type || !window.bwipjs) {
+        return;
+    }
+
+    const is2D = ["QR", "DATAMATRIX", "AZTEC"].includes(card.type);
+
+    /*
+     * Keep linear barcodes relatively short vertically while allowing
+     * 2D codes to use more of the available screen.
+     */
+    const options = {
+        bcid: type.bwip,
+        text: card.code,
+        scale: is2D ? 5 : 4,
+        includetext: false,
+        paddingwidth: 0,
+        paddingheight: 0,
+        backgroundcolor: "FFFFFF"
+    };
+
+    if (card.type === "QR") {
+        options.eclevel = "M";
+    }
+
+    try {
+        window.bwipjs.toCanvas(viewerCode, options);
+    } catch (error) {
+        console.error("Barcode rendering failed:", error);
+    }
+}
+
+/* ------------------------------------------------------------------
+   Portable definitions
+------------------------------------------------------------------ */
+
+function cardDefinition(card) {
+    return {
+        type: "loyalty-card",
+        version: 1,
+        card: {
+            name: card.name,
+            code: card.code,
+            type: card.type,
+            colour: card.colour || "#2d7d46"
+        }
+    };
+}
+
+function collectionDefinition() {
+    return {
+        type: "loyalty-cards",
+        version: 1,
+        cards: cards.map(card => ({
+            name: card.name,
+            code: card.code,
+            type: card.type,
+            colour: card.colour || "#2d7d46"
+        }))
+    };
+}
+
+function definitionText(card) {
+    return JSON.stringify(cardDefinition(card), null, 2);
+}
+
+function collectionText() {
+    return JSON.stringify(collectionDefinition(), null, 2);
+}
+
+/* ------------------------------------------------------------------
+   Import validation
+------------------------------------------------------------------ */
+
+function validateCardDefinition(card) {
+    if (!card || typeof card !== "object") {
+        throw new Error("Invalid card definition.");
+    }
+
+    const name = String(card.name || "").trim();
+    const code = String(card.code || "").trim();
+    const type = card.type;
+
+    if (!name) {
+        throw new Error("Card is missing its name.");
+    }
+
+    if (!code) {
+        throw new Error(`"${name}" is missing its card number.`);
+    }
+
+    if (!CARD_TYPES[type]) {
+        throw new Error(`"${name}" has an unsupported barcode type.`);
+    }
+
+    return {
+        name,
+        code,
+        type,
+        colour:
+            typeof card.colour === "string" && card.colour
+                ? card.colour
+                : "#2d7d46"
+    };
+}
+
+function parseImport(text) {
+    let data;
+
+    try {
+        data = JSON.parse(text);
+    } catch {
+        throw new Error("That doesn't appear to be valid JSON.");
+    }
+
+    if (!data || typeof data !== "object") {
+        throw new Error("Invalid card definition.");
+    }
+
+    if (data.version !== 1) {
+        throw new Error("Unsupported definition version.");
+    }
+
+    if (data.type === "loyalty-card") {
+        return [validateCardDefinition(data.card)];
+    }
+
+    if (data.type === "loyalty-cards") {
+        if (!Array.isArray(data.cards)) {
+            throw new Error("Collection does not contain a cards array.");
         }
 
-        handleScanResult(result);
-      }
+        return data.cards.map(validateCardDefinition);
+    }
+
+    throw new Error("This isn't a Loyalty Cards definition.");
+}
+
+function isDuplicate(card) {
+    return cards.some(existing =>
+        existing.type === card.type &&
+        existing.code === card.code
     );
 }
 
-function handleScanResult(result) {
-  const code = result.getText();
+/* ------------------------------------------------------------------
+   Clipboard / sharing
+------------------------------------------------------------------ */
 
-  const format = result.getBarcodeFormat();
+async function copyText(text) {
+    if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+    }
 
-  const type = typeForZXingFormat(format);
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
 
-  if (!type) {
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+}
+
+async function shareText(title, text) {
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title,
+                text
+            });
+
+            return true;
+        } catch (error) {
+            /*
+             * AbortError means the user simply closed the share sheet.
+             * Don't report that as an error.
+             */
+            if (error?.name === "AbortError") {
+                return true;
+            }
+        }
+    }
+
+    await copyText(text);
+    return false;
+}
+
+async function shareCard(card) {
+    const text = definitionText(card);
+
+    await shareText(
+        `${card.name} loyalty card`,
+        text
+    );
+}
+
+async function shareAll() {
+    const text = collectionText();
+
+    await shareText(
+        "My loyalty cards",
+        text
+    );
+}
+
+viewerShareButton.addEventListener("click", async () => {
+    if (!viewingId) {
+        return;
+    }
+
+    const card = cards.find(c => c.id === viewingId);
+
+    if (card) {
+        await shareCard(card);
+    }
+});
+
+copyAllButton.addEventListener("click", async () => {
+    await copyText(collectionText());
+
+    showTransferStatus(
+        `Copied ${cards.length} card${cards.length === 1 ? "" : "s"}.`
+    );
+});
+
+shareAllButton.addEventListener("click", async () => {
+    await shareAll();
+});
+
+pasteButton.addEventListener("click", async () => {
+    if (!navigator.clipboard?.readText) {
+        showTransferStatus(
+            "Clipboard access isn't available here. Paste into the box manually."
+        );
+        return;
+    }
+
+    try {
+        importText.value = await navigator.clipboard.readText();
+        showTransferStatus("Pasted from clipboard.");
+    } catch {
+        showTransferStatus(
+            "Couldn't read the clipboard. Paste into the box manually."
+        );
+    }
+});
+
+importButton.addEventListener("click", () => {
+    const text = importText.value.trim();
+
+    if (!text) {
+        showTransferStatus("Paste a card definition first.");
+        return;
+    }
+
+    try {
+        const imported = parseImport(text);
+
+        const newCards = imported.filter(card => !isDuplicate(card));
+        const duplicates = imported.length - newCards.length;
+
+        for (const card of newCards) {
+            cards.push({
+                id: crypto.randomUUID(),
+                ...card
+            });
+        }
+
+        saveCards();
+
+        if (newCards.length === 0) {
+            showTransferStatus(
+                `${imported.length} card${imported.length === 1 ? "" : "s"} found — all already exist.`
+            );
+        } else if (duplicates > 0) {
+            showTransferStatus(
+                `Imported ${newCards.length} new card${newCards.length === 1 ? "" : "s"}; skipped ${duplicates} duplicate${duplicates === 1 ? "" : "s"}.`
+            );
+        } else {
+            showTransferStatus(
+                `Imported ${newCards.length} card${newCards.length === 1 ? "" : "s"}.`
+            );
+        }
+
+        renderCards();
+    } catch (error) {
+        showTransferStatus(error.message || "Import failed.");
+    }
+});
+
+function showTransferStatus(message) {
+    transferStatus.textContent = message;
+    transferStatus.classList.remove("hidden");
+}
+
+/* ------------------------------------------------------------------
+   Scanner
+------------------------------------------------------------------ */
+
+scanButton.addEventListener("click", startScanner);
+
+scannerBackButton.addEventListener("click", () => {
+    stopScanner();
+    showScreen(editScreen);
+});
+
+async function startScanner() {
+    if (!window.ZXing) {
+        scannerStatus.textContent = "Barcode scanner is unavailable.";
+        return;
+    }
+
+    showScreen(scannerScreen);
+
     scannerStatus.textContent =
-      "Code detected, but the format isn't supported.";
+        "Point the camera at the barcode.";
 
-    return;
-  }
+    try {
+        scannerReader = new window.ZXing.BrowserMultiFormatReader();
 
-  /*
-   * Automatically populate BOTH the code and the detected format.
-   */
-  cardCode.value = code;
-  cardType.value = type;
+        scannerReader.possibleFormats = [
+            window.ZXing.BarcodeFormat.EAN_13,
+            window.ZXing.BarcodeFormat.EAN_8,
+            window.ZXing.BarcodeFormat.UPC_A,
+            window.ZXing.BarcodeFormat.CODE_128,
+            window.ZXing.BarcodeFormat.QR_CODE,
+            window.ZXing.BarcodeFormat.DATA_MATRIX,
+            window.ZXing.BarcodeFormat.AZTEC
+        ];
 
-  scannerStatus.textContent =
-    `${formatTypeName(type)} detected`;
+        scanning = true;
 
-  /*
-   * Stop the camera before returning to the form.
-   */
-  stopScanner();
+        await scannerReader.decodeFromConstraints(
+            {
+                video: {
+                    facingMode: {
+                        ideal: "environment"
+                    }
+                }
+            },
+            scannerVideo,
+            (result, error) => {
+                if (!scanning || !result) {
+                    return;
+                }
 
-  scannerModal.classList.add("hidden");
+                const type = typeForZXingFormat(
+                    result.getBarcodeFormat()
+                );
 
-  /*
-   * Put focus back on the code field.
-   */
-  setTimeout(() => cardCode.focus(), 50);
+                if (!type) {
+                    scannerStatus.textContent =
+                        "Barcode detected, but its format isn't supported.";
+                    return;
+                }
+
+                cardCode.value = result.getText();
+                cardType.value = type;
+
+                stopScanner();
+                showScreen(editScreen);
+
+                scannerStatus.textContent = "Barcode detected.";
+            }
+        );
+    } catch (error) {
+        console.error(error);
+
+        scannerStatus.textContent =
+            "Couldn't start the camera. Check camera permission.";
+    }
 }
 
 function typeForZXingFormat(format) {
-  switch (format) {
-    case BarcodeFormat.EAN_13:
-      return "EAN13";
+    const B = window.ZXing.BarcodeFormat;
 
-    case BarcodeFormat.EAN_8:
-      return "EAN8";
+    switch (format) {
+        case B.EAN_13:
+            return "EAN13";
 
-    case BarcodeFormat.UPC_A:
-      return "UPC";
+        case B.EAN_8:
+            return "EAN8";
 
-    case BarcodeFormat.CODE_128:
-      return "CODE128";
+        case B.UPC_A:
+            return "UPC";
 
-    case BarcodeFormat.QR_CODE:
-      return "QR";
+        case B.CODE_128:
+            return "CODE128";
 
-    default:
-      return null;
-  }
+        case B.QR_CODE:
+            return "QR";
+
+        case B.DATA_MATRIX:
+            return "DATAMATRIX";
+
+        case B.AZTEC:
+            return "AZTEC";
+
+        default:
+            return null;
+    }
 }
 
 function stopScanner() {
-  if (scannerControls) {
-    try {
-      scannerControls.stop();
-    } catch {
-      // Ignore cleanup errors.
-    }
+    scanning = false;
 
-    scannerControls = null;
-  }
-
-  if (scannerVideo.srcObject) {
-    for (const track of scannerVideo.srcObject.getTracks()) {
-      track.stop();
-    }
-
-    scannerVideo.srcObject = null;
-  }
-
-  scannerReader = null;
-}
-
-function closeScanner() {
-  stopScanner();
-  scannerModal.classList.add("hidden");
-}
-
-function getScannerErrorMessage(error) {
-  const message = String(error?.message || error);
-
-  if (/permission|notallowed|denied/i.test(message)) {
-    return "Camera permission was denied. Allow camera access and try again.";
-  }
-
-  if (/secure|https/i.test(message)) {
-    return "Camera access requires HTTPS. GitHub Pages provides this automatically.";
-  }
-
-  if (/camera|device|not found/i.test(message)) {
-    return "No usable camera was found.";
-  }
-
-  return "Unable to start the camera.";
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* Viewer                                                                      */
-/* -------------------------------------------------------------------------- */
-
-async function openViewer(id) {
-  const card = cards.find(c => c.id === id);
-
-  if (!card) {
-    return;
-  }
-
-  currentViewerCardId = id;
-
-  viewerCardName.textContent = card.name;
-  viewerCodeValue.textContent = card.code;
-
-  viewerBarcode.innerHTML = "";
-  viewerQr.style.display = "none";
-  viewerBarcode.style.display = "none";
-
-  if (card.type === "QR") {
-    viewerQr.style.display = "block";
-
-    try {
-      await QRCode.toCanvas(
-        viewerQr,
-        card.code,
-        {
-          errorCorrectionLevel: "M",
-          margin: 2,
-          width: 500
+    if (scannerReader) {
+        try {
+            scannerReader.reset();
+        } catch {
+            // Ignore scanner cleanup errors.
         }
-      );
-    } catch (error) {
-      console.error(error);
 
-      viewerCodeValue.textContent =
-        "Unable to render QR code.";
+        scannerReader = null;
     }
-  } else {
-    viewerBarcode.style.display = "block";
 
-    try {
-      renderBarcode(card);
-    } catch (error) {
-      console.error(error);
+    if (scannerVideo.srcObject) {
+        for (const track of scannerVideo.srcObject.getTracks()) {
+            track.stop();
+        }
 
-      viewerCodeValue.textContent =
-        "Unable to render barcode.";
+        scannerVideo.srcObject = null;
     }
-  }
 
-  viewer.classList.remove("hidden");
-
-  await requestWakeLock();
+    scannerStream = null;
 }
 
-function renderBarcode(card) {
-  let format;
-
-  switch (card.type) {
-    case "EAN13":
-      format = "ean13";
-      break;
-
-    case "EAN8":
-      format = "ean8";
-      break;
-
-    case "UPC":
-      format = "upc";
-      break;
-
-    case "CODE128":
-      format = "CODE128";
-      break;
-
-    default:
-      throw new Error("Unsupported barcode type.");
-  }
-
-  JsBarcode(viewerBarcode, card.code, {
-    format,
-    displayValue: false,
-    margin: 10,
-    width: 3,
-    height: 180,
-    background: "#ffffff",
-    lineColor: "#000000"
-  });
-}
-
-function closeViewer() {
-  releaseWakeLock();
-
-  viewer.classList.add("hidden");
-
-  currentViewerCardId = null;
-}
-
-function editViewerCard() {
-  if (!currentViewerCardId) {
-    return;
-  }
-
-  const id = currentViewerCardId;
-
-  closeViewer();
-  openEditCard(id);
-}
-
-function deleteViewerCard() {
-  if (!currentViewerCardId) {
-    return;
-  }
-
-  const card = cards.find(
-    c => c.id === currentViewerCardId
-  );
-
-  if (!card) {
-    return;
-  }
-
-  const confirmed =
-    window.confirm(
-      `Delete "${card.name}"?`
-    );
-
-  if (!confirmed) {
-    return;
-  }
-
-  cards = cards.filter(
-    c => c.id !== currentViewerCardId
-  );
-
-  saveCards();
-  renderCards();
-  closeViewer();
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* Wake Lock                                                                   */
-/* -------------------------------------------------------------------------- */
+/* ------------------------------------------------------------------
+   Wake Lock
+------------------------------------------------------------------ */
 
 async function requestWakeLock() {
-  if (!("wakeLock" in navigator)) {
-    return;
-  }
+    if (!("wakeLock" in navigator)) {
+        return;
+    }
 
-  try {
-    wakeLock = await navigator.wakeLock.request("screen");
-  } catch {
+    try {
+        wakeLock = await navigator.wakeLock.request("screen");
+    } catch {
+        wakeLock = null;
+    }
+}
+
+async function releaseWakeLock() {
+    if (!wakeLock) {
+        return;
+    }
+
+    try {
+        await wakeLock.release();
+    } catch {
+        // Ignore.
+    }
+
     wakeLock = null;
-  }
 }
 
-function releaseWakeLock() {
-  if (!wakeLock) {
-    return;
-  }
-
-  try {
-    wakeLock.release();
-  } catch {
-    // Ignore.
-  }
-
-  wakeLock = null;
-}
-
-
-/* -------------------------------------------------------------------------- */
-/* Events                                                                      */
-/* -------------------------------------------------------------------------- */
-
-document
-  .getElementById("themeToggle")
-  .addEventListener("click", toggleTheme);
-
-document
-  .getElementById("addCardButton")
-  .addEventListener("click", openAddCard);
-
-document
-  .getElementById("closeCardModal")
-  .addEventListener("click", closeCardModal);
-
-document
-  .getElementById("cancelCardButton")
-  .addEventListener("click", closeCardModal);
-
-document
-  .getElementById("scanButton")
-  .addEventListener("click", openScanner);
-
-document
-  .getElementById("closeScannerButton")
-  .addEventListener("click", closeScanner);
-
-document
-  .getElementById("closeViewerButton")
-  .addEventListener("click", closeViewer);
-
-document
-  .getElementById("editViewerButton")
-  .addEventListener("click", editViewerCard);
-
-document
-  .getElementById("deleteViewerButton")
-  .addEventListener("click", deleteViewerCard);
-
-cardForm.addEventListener(
-  "submit",
-  saveCardFromForm
-);
-
-
-/*
- * Event delegation for the card list.
- */
-cardList.addEventListener("click", event => {
-  const viewButton =
-    event.target.closest(".view-card-button");
-
-  if (viewButton) {
-    openViewer(viewButton.dataset.id);
-    return;
-  }
-
-  const editButton =
-    event.target.closest(".edit-card-button");
-
-  if (editButton) {
-    openEditCard(editButton.dataset.id);
-  }
-});
-
-
-/*
- * Close things when clicking modal backgrounds.
- */
-cardModal
-  .querySelector(".modal-backdrop")
-  .addEventListener("click", closeCardModal);
-
-scannerModal
-  .querySelector(".modal-backdrop")
-  .addEventListener("click", closeScanner);
-
-
-/*
- * Escape closes the currently visible overlay.
- */
-document.addEventListener("keydown", event => {
-  if (event.key !== "Escape") {
-    return;
-  }
-
-  if (!viewer.classList.contains("hidden")) {
-    closeViewer();
-    return;
-  }
-
-  if (!scannerModal.classList.contains("hidden")) {
-    closeScanner();
-    return;
-  }
-
-  if (!cardModal.classList.contains("hidden")) {
-    closeCardModal();
-  }
-});
-
-
-/*
- * iOS/Safari can release the Wake Lock when the page becomes hidden.
- * Re-acquire it when the viewer becomes visible again.
- */
 document.addEventListener("visibilitychange", async () => {
-  if (
-    document.visibilityState === "visible" &&
-    !viewer.classList.contains("hidden")
-  ) {
-    await requestWakeLock();
-  }
+    if (
+        document.visibilityState === "visible" &&
+        !viewerScreen.classList.contains("hidden")
+    ) {
+        await requestWakeLock();
+    }
 });
 
+/* ------------------------------------------------------------------
+   Theme
+------------------------------------------------------------------ */
 
-/* -------------------------------------------------------------------------- */
-/* Initialisation                                                              */
-/* -------------------------------------------------------------------------- */
+function loadTheme() {
+    const theme = localStorage.getItem(THEME_KEY);
+
+    if (theme === "light") {
+        document.documentElement.classList.add("light");
+    }
+}
+
+themeButton.addEventListener("click", () => {
+    const light = document.documentElement.classList.toggle("light");
+
+    localStorage.setItem(
+        THEME_KEY,
+        light ? "light" : "dark"
+    );
+});
+
+/* ------------------------------------------------------------------
+   Navigation
+------------------------------------------------------------------ */
+
+addCardButton.addEventListener("click", openAddCard);
+importExportButton.addEventListener("click", openTransfer);
+
+editBackButton.addEventListener("click", showList);
+transferBackButton.addEventListener("click", showList);
+
+viewerBackButton.addEventListener("click", showList);
+
+/* ------------------------------------------------------------------
+   Initialisation
+------------------------------------------------------------------ */
 
 loadTheme();
 renderCards();
