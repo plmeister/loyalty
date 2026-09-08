@@ -1,2019 +1,1619 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1, viewport-fit=cover"
-    >
-
-    <meta name="theme-color" content="#f5f5f7">
-
-    <!-- iOS Home Screen -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta
-        name="apple-mobile-web-app-status-bar-style"
-        content="default"
-    >
-    <meta
-        name="apple-mobile-web-app-title"
-        content="Loyalty Cards"
-    >
-
-    <title>Loyalty Cards</title>
-
-    <!--
-        JsBarcode is used only for rendering the barcode.
-        Card data itself never leaves the device.
-    -->
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-
-    <style>
-        :root {
-            --background: #f5f5f7;
-            --surface: #ffffff;
-            --surface-secondary: #eeeeF0;
-            --text: #171717;
-            --secondary-text: #707070;
-            --border: #dedee2;
-            --accent: #111111;
-            --danger: #d92d20;
-            --radius: 20px;
-        }
-
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        html {
-            background: var(--background);
-        }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            min-height: 100dvh;
-
-            background: var(--background);
-            color: var(--text);
-
-            font-family:
-                -apple-system,
-                BlinkMacSystemFont,
-                "SF Pro Display",
-                "SF Pro Text",
-                "Segoe UI",
-                sans-serif;
-
-            -webkit-font-smoothing: antialiased;
-
-            padding:
-                env(safe-area-inset-top)
-                16px
-                env(safe-area-inset-bottom);
-        }
-
-        button,
-        input,
-        select {
-            font: inherit;
-        }
-
-        button {
-            border: 0;
-        }
-
-        .app {
-            width: 100%;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 22px 0 30px;
-        }
-
-        /* ---------------------------------------------------------
-           HEADER
-        --------------------------------------------------------- */
-
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111318">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>My Cards</title>
+
+  <style>
+    :root {
+      color-scheme: dark;
+
+      --bg: #111318;
+      --surface: #1b1e24;
+      --surface-2: #242832;
+      --border: #343944;
+      --text: #f4f5f7;
+      --muted: #a5aab5;
+      --accent: #4f8cff;
+      --danger: #ff5c67;
+      --input: #181b20;
+      --shadow: 0 8px 30px rgba(0,0,0,.35);
+    }
+
+    :root[data-theme="light"] {
+      color-scheme: light;
+
+      --bg: #f4f5f7;
+      --surface: #ffffff;
+      --surface-2: #eef0f3;
+      --border: #d7dae0;
+      --text: #17191d;
+      --muted: #666c76;
+      --accent: #286cff;
+      --danger: #d92d3a;
+      --input: #ffffff;
+      --shadow: 0 8px 30px rgba(0,0,0,.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+    }
+
+    body {
+      padding:
+        env(safe-area-inset-top)
+        env(safe-area-inset-right)
+        env(safe-area-inset-bottom)
+        env(safe-area-inset-left);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 18px 16px 40px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-button {
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: 16px;
+      margin-bottom: 16px;
+    }
+
+    .empty strong {
+      display: block;
+      color: var(--text);
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .cards {
+      display: grid;
+      gap: 12px;
+    }
+
+    .card {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .card-colour {
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 5px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .card-name {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .card-number {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 3px;
+      word-break: break-all;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .small-button {
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 9px;
+      padding: 7px 10px;
+      font-size: 13px;
+    }
+
+    .small-button.danger {
+      color: var(--danger);
+    }
+
+    .barcode-container {
+      background: white;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 12px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .barcode-container svg {
+      width: 100%;
+      height: auto;
+      max-height: 110px;
+    }
+
+    .view-button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .primary {
+      width: 100%;
+      border: 0;
+      border-radius: 12px;
+      background: var(--accent);
+      color: white;
+      padding: 14px 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    /* Modal */
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      background: rgba(0,0,0,.72);
+      padding:
+        max(16px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        max(16px, env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-left));
+    }
+
+    .modal.open {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 520px;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .close {
+      width: 38px;
+      height: 38px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 22px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0 0 7px;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 12px 13px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--input);
+      color: var(--text);
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-row input {
+      flex: 1;
+    }
+
+    .scan-inline {
+      flex-shrink: 0;
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: white;
+      padding: 0 14px;
+      font-weight: 600;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 22px;
+    }
+
+    .form-actions button {
+      flex: 1;
+      padding: 13px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .cancel-button {
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .save-button {
+      border: 0;
+      background: var(--accent);
+      color: white;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* Scanner */
+
+    #scannerModal {
+      background: #000;
+      padding: 0;
+    }
+
+    .scanner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #scannerVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .scanner-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scan-box {
+      width: min(82vw, 420px);
+      height: 150px;
+      border: 3px solid white;
+      border-radius: 14px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.38);
+    }
+
+    .scanner-top {
+      position: absolute;
+      top: max(18px, env(safe-area-inset-top));
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 2;
+    }
+
+    .scanner-title {
+      color: white;
+      font-weight: 700;
+      text-shadow: 0 1px 3px #000;
+    }
+
+    .scanner-close {
+      border: 0;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: rgba(0,0,0,.55);
+      color: white;
+      font-size: 22px;
+    }
+
+    .scanner-bottom {
+      position: absolute;
+      bottom: max(20px, env(safe-area-inset-bottom));
+      left: 16px;
+      right: 16px;
+      z-index: 2;
+      text-align: center;
+    }
+
+    .scanner-status {
+      display: inline-block;
+      background: rgba(0,0,0,.65);
+      color: white;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      max-width: 90%;
+    }
+
+    /* Fullscreen barcode */
+
+    #viewerModal {
+      background: #000;
+      padding: 0;
+    }
+
+    .viewer {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      background: white;
+      color: black;
+    }
+
+    .viewer-header {
+      flex-shrink: 0;
+      padding:
+        max(16px, env(safe-area-inset-top))
+        16px
+        12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+    }
+
+    .viewer-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: #111;
+    }
+
+    .viewer-close {
+      border: 0;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #eee;
+      color: #111;
+      font-size: 22px;
+    }
+
+    .viewer-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      gap: 20px;
+    }
+
+    .viewer-barcode {
+      width: 100%;
+      max-width: 650px;
+      background: white;
+    }
+
+    .viewer-barcode svg {
+      width: 100%;
+      height: auto;
+      max-height: 300px;
+    }
+
+    .viewer-number {
+      color: #333;
+      font-size: 18px;
+      letter-spacing: .08em;
+      text-align: center;
+      word-break: break-all;
+    }
+
+    .viewer-footer {
+      flex-shrink: 0;
+      padding:
+        12px
+        16px
+        max(20px, env(safe-area-inset-bottom));
+      text-align: center;
+      color: #666;
+      font-size: 13px;
+      background: white;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .error {
+      color: var(--danger);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    @media (min-width: 600px) {
+      .app {
+        padding-top: 32px;
+      }
+
+      .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .card:first-child:last-child {
+        grid-column: 1 / -1;
+      }
+    }
+  </style>
 
-        .title {
-            margin: 0;
-            font-size: 30px;
-            line-height: 1.1;
-            letter-spacing: -0.8px;
-            font-weight: 750;
-        }
-
-        .subtitle {
-            margin-top: 5px;
-            color: var(--secondary-text);
-            font-size: 14px;
-        }
-
-        .add-button {
-            width: 46px;
-            height: 46px;
-
-            border-radius: 50%;
-
-            background: var(--accent);
-            color: white;
-
-            font-size: 29px;
-            font-weight: 300;
-
-            display: grid;
-            place-items: center;
-
-            box-shadow:
-                0 3px 12px rgba(0, 0, 0, 0.15);
-
-            cursor: pointer;
-
-            transition:
-                transform 0.1s ease,
-                opacity 0.1s ease;
-        }
-
-        .add-button:active {
-            transform: scale(0.92);
-            opacity: 0.8;
-        }
-
-        /* ---------------------------------------------------------
-           CARD LIST
-        --------------------------------------------------------- */
-
-        .cards {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .loyalty-card {
-            position: relative;
-
-            display: flex;
-            align-items: center;
-
-            gap: 15px;
-
-            min-height: 96px;
-            padding: 16px 15px 16px 17px;
-
-            background: var(--surface);
-
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-
-            box-shadow:
-                0 2px 8px rgba(0, 0, 0, 0.04);
-        }
-
-        .card-logo {
-            width: 58px;
-            height: 58px;
-
-            flex: 0 0 58px;
-
-            border-radius: 16px;
-
-            display: grid;
-            place-items: center;
-
-            font-size: 17px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
-
-        .card-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .card-name {
-            font-size: 18px;
-            font-weight: 700;
-            line-height: 1.2;
-        }
-
-        .card-number {
-            margin-top: 5px;
-
-            color: var(--secondary-text);
-
-            font-size: 13px;
-            line-height: 1.2;
-
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .card-actions {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-        }
-
-        .show-button {
-            padding: 11px 14px;
-
-            border-radius: 12px;
-
-            background: #111;
-            color: #fff;
-
-            font-size: 14px;
-            font-weight: 700;
-
-            cursor: pointer;
-        }
-
-        .edit-button {
-            width: 36px;
-            height: 36px;
-
-            border-radius: 10px;
-
-            background: var(--surface-secondary);
-            color: #555;
-
-            font-size: 18px;
-
-            cursor: pointer;
-        }
-
-        .empty {
-            padding: 60px 25px;
-
-            text-align: center;
-
-            color: var(--secondary-text);
-
-            font-size: 15px;
-            line-height: 1.6;
-        }
-
-        .empty-plus {
-            display: inline-grid;
-            place-items: center;
-
-            width: 32px;
-            height: 32px;
-
-            margin-bottom: 10px;
-
-            border-radius: 50%;
-
-            background: #111;
-            color: white;
-
-            font-size: 21px;
-        }
-
-        .footer {
-            margin-top: 24px;
-
-            text-align: center;
-
-            color: #a0a0a0;
-
-            font-size: 12px;
-        }
-
-        /* ---------------------------------------------------------
-           MODAL / EDITOR
-        --------------------------------------------------------- */
-
-        .modal {
-            position: fixed;
-            inset: 0;
-
-            z-index: 100;
-
-            display: none;
-            align-items: flex-end;
-
-            background: rgba(0, 0, 0, 0.48);
-        }
-
-        .modal.visible {
-            display: flex;
-        }
-
-        .sheet {
-            width: 100%;
-
-            max-height: 92dvh;
-            overflow-y: auto;
-
-            padding:
-                10px
-                20px
-                calc(22px + env(safe-area-inset-bottom));
-
-            background: white;
-
-            border-radius: 26px 26px 0 0;
-
-            box-shadow:
-                0 -8px 30px rgba(0, 0, 0, 0.12);
-        }
-
-        .sheet-inner {
-            width: 100%;
-            max-width: 560px;
-            margin: 0 auto;
-        }
-
-        .grabber {
-            width: 38px;
-            height: 5px;
-
-            margin: 2px auto 20px;
-
-            border-radius: 5px;
-
-            background: #d5d5d8;
-        }
-
-        .sheet-title {
-            margin: 0 0 20px;
-
-            font-size: 24px;
-            font-weight: 750;
-            letter-spacing: -0.4px;
-        }
-
-        .field {
-            margin-bottom: 16px;
-        }
-
-        .field label {
-            display: block;
-
-            margin-bottom: 7px;
-
-            font-size: 13px;
-            font-weight: 650;
-        }
-
-        .field input,
-        .field select {
-            width: 100%;
-
-            padding: 14px 13px;
-
-            border: 1px solid #d5d5d9;
-            border-radius: 13px;
-
-            background: white;
-            color: var(--text);
-
-            font-size: 16px;
-
-            outline: none;
-        }
-
-        .field input:focus,
-        .field select:focus {
-            border-color: #777;
-
-            box-shadow:
-                0 0 0 3px rgba(0, 0, 0, 0.06);
-        }
-
-        .barcode-input-row {
-            display: flex;
-            gap: 8px;
-        }
-
-        .barcode-input-row input {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .scan-button {
-            flex: 0 0 auto;
-
-            padding: 0 15px;
-
-            border-radius: 13px;
-
-            background: #eeeeF0;
-            color: #111;
-
-            font-weight: 700;
-
-            cursor: pointer;
-        }
-
-        .buttons {
-            display: flex;
-            gap: 10px;
-
-            margin-top: 22px;
-        }
-
-        .button {
-            flex: 1;
-
-            padding: 14px;
-
-            border-radius: 13px;
-
-            font-weight: 700;
-
-            cursor: pointer;
-        }
-
-        .button-primary {
-            background: #111;
-            color: white;
-        }
-
-        .button-secondary {
-            background: #eeeeF0;
-            color: #111;
-        }
-
-        .delete-button {
-            width: 100%;
-
-            margin-top: 10px;
-            padding: 13px;
-
-            border-radius: 13px;
-
-            background: #fff0ef;
-            color: var(--danger);
-
-            font-weight: 700;
-
-            cursor: pointer;
-        }
-
-        /* ---------------------------------------------------------
-           CAMERA
-        --------------------------------------------------------- */
-
-        .scanner {
-            position: fixed;
-            inset: 0;
-
-            z-index: 200;
-
-            display: none;
-            flex-direction: column;
-
-            background: #000;
-
-            padding:
-                calc(16px + env(safe-area-inset-top))
-                16px
-                calc(16px + env(safe-area-inset-bottom));
-        }
-
-        .scanner.visible {
-            display: flex;
-        }
-
-        .scanner-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            color: white;
-
-            margin-bottom: 15px;
-        }
-
-        .scanner-title {
-            font-size: 20px;
-            font-weight: 750;
-        }
-
-        .scanner-close {
-            padding: 10px 14px;
-
-            border-radius: 12px;
-
-            background: #ffffff20;
-            color: white;
-
-            font-weight: 650;
-
-            cursor: pointer;
-        }
-
-        .camera-container {
-            position: relative;
-
-            flex: 1;
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            overflow: hidden;
-
-            border-radius: 20px;
-
-            background: #111;
-        }
-
-        #camera {
-            width: 100%;
-            height: 100%;
-
-            object-fit: cover;
-        }
-
-        .scan-frame {
-            position: absolute;
-
-            width: 82%;
-            max-width: 420px;
-            height: 130px;
-
-            border: 3px solid white;
-            border-radius: 16px;
-
-            box-shadow:
-                0 0 0 9999px rgba(0, 0, 0, 0.35);
-        }
-
-        .scanner-help {
-            padding: 18px 10px 5px;
-
-            text-align: center;
-
-            color: #ccc;
-
-            font-size: 14px;
-        }
-
-        /* ---------------------------------------------------------
-           BARCODE VIEWER
-        --------------------------------------------------------- */
-
-        .viewer {
-            position: fixed;
-            inset: 0;
-
-            z-index: 300;
-
-            display: none;
-            flex-direction: column;
-
-            background: white;
-
-            padding:
-                calc(16px + env(safe-area-inset-top))
-                14px
-                calc(18px + env(safe-area-inset-bottom));
-        }
-
-        .viewer.visible {
-            display: flex;
-        }
-
-        .viewer-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            min-height: 46px;
-        }
-
-        .back-button {
-            padding: 10px 14px;
-
-            border-radius: 12px;
-
-            background: #eeeeF0;
-            color: #111;
-
-            font-weight: 650;
-
-            cursor: pointer;
-        }
-
-        .viewer-title {
-            max-width: 55%;
-
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-
-            font-size: 21px;
-            font-weight: 750;
-        }
-
-        .viewer-spacer {
-            width: 68px;
-        }
-
-        .barcode-content {
-            flex: 1;
-
-            display: flex;
-            flex-direction: column;
-
-            align-items: center;
-            justify-content: center;
-
-            width: 100%;
-        }
-
-        #barcode {
-            display: block;
-
-            width: min(94vw, 560px);
-            max-height: 240px;
-
-            background: white;
-        }
-
-        .barcode-number {
-            margin-top: 18px;
-
-            color: #444;
-
-            font-size: 15px;
-            letter-spacing: 1.2px;
-        }
-
-        .viewer-help {
-            margin-top: 25px;
-
-            text-align: center;
-
-            color: #777;
-
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        .viewer-edit {
-            margin-top: 20px;
-
-            padding: 12px 20px;
-
-            border-radius: 12px;
-
-            background: #eeeeF0;
-
-            font-weight: 650;
-
-            cursor: pointer;
-        }
-
-        /* ---------------------------------------------------------
-           SMALL SCREENS
-        --------------------------------------------------------- */
-
-        @media (max-width: 390px) {
-            .title {
-                font-size: 27px;
-            }
-
-            .card-actions {
-                gap: 4px;
-            }
-
-            .show-button {
-                padding: 10px 11px;
-            }
-
-            .edit-button {
-                display: none;
-            }
-
-            .card-logo {
-                width: 52px;
-                height: 52px;
-                flex-basis: 52px;
-            }
-        }
-    </style>
 </head>
 
 <body>
 
-<div class="app">
+  <main class="app">
 
-    <header class="header">
-        <div>
-            <h1 class="title">Loyalty Cards</h1>
-            <div class="subtitle">Your cards, all in one place</div>
-        </div>
+```
+<header>
+  <h1>My Cards</h1>
 
-        <button
-            class="add-button"
-            type="button"
-            aria-label="Add loyalty card"
-            onclick="openEditor()"
-        >
-            +
-        </button>
-    </header>
+  <div class="header-actions">
+    <button
+      class="icon-button"
+      id="themeButton"
+      type="button"
+      aria-label="Toggle light/dark theme"
+      title="Toggle theme"
+    >☀️</button>
+  </div>
+</header>
 
-    <main id="cards" class="cards"></main>
+<button class="primary" id="addButton" type="button">
+  + Add card
+</button>
 
-    <div class="footer">
-        Your cards are stored only on this device.
-    </div>
-
+<div id="emptyState" class="empty hidden">
+  <strong>No cards yet</strong>
+  Add your first loyalty card above.
 </div>
 
+<section id="cards" class="cards"></section>
+```
 
-<!-- =============================================================
-     ADD / EDIT CARD
-============================================================= -->
+  </main>
 
-<div
-    id="editor"
-    class="modal"
-    onclick="handleModalBackground(event)"
->
-    <div class="sheet">
+  <!-- Add / Edit modal -->
 
-        <div class="sheet-inner">
+  <div class="modal" id="editModal" aria-hidden="true">
+    <div class="modal-card">
 
-            <div class="grabber"></div>
+```
+  <div class="modal-header">
+    <h2 id="modalTitle">Add card</h2>
+    <button class="close" id="editClose" type="button" aria-label="Close">×</button>
+  </div>
 
-            <h2
-                id="editorTitle"
-                class="sheet-title"
-            >
-                Add card
-            </h2>
+  <form id="cardForm">
 
-            <div class="field">
-                <label for="cardName">Card name</label>
-
-                <input
-                    id="cardName"
-                    type="text"
-                    placeholder="e.g. Lidl"
-                    autocomplete="off"
-                >
-            </div>
-
-            <div class="field">
-
-                <label for="cardNumber">
-                    Barcode number
-                </label>
-
-                <div class="barcode-input-row">
-
-                    <input
-                        id="cardNumber"
-                        type="text"
-                        inputmode="numeric"
-                        placeholder="Scan or type the number"
-                        autocomplete="off"
-                    >
-
-                    <button
-                        type="button"
-                        class="scan-button"
-                        onclick="startScanner()"
-                    >
-                        Scan
-                    </button>
-
-                </div>
-
-            </div>
-
-            <div class="field">
-
-                <label for="barcodeFormat">
-                    Barcode type
-                </label>
-
-                <select id="barcodeFormat">
-
-                    <option value="EAN13">
-                        EAN-13
-                    </option>
-
-                    <option value="EAN8">
-                        EAN-8
-                    </option>
-
-                    <option value="UPC">
-                        UPC-A
-                    </option>
-
-                    <option value="CODE128">
-                        Code 128
-                    </option>
-
-                </select>
-
-            </div>
-
-            <div class="buttons">
-
-                <button
-                    type="button"
-                    class="button button-secondary"
-                    onclick="closeEditor()"
-                >
-                    Cancel
-                </button>
-
-                <button
-                    type="button"
-                    class="button button-primary"
-                    onclick="saveCard()"
-                >
-                    Save card
-                </button>
-
-            </div>
-
-            <button
-                id="deleteButton"
-                type="button"
-                class="delete-button"
-                onclick="deleteCurrentCard()"
-                style="display:none"
-            >
-                Delete card
-            </button>
-
-        </div>
-
+    <div class="field">
+      <label for="cardName">Card name</label>
+      <input
+        id="cardName"
+        type="text"
+        placeholder="e.g. Lidl Plus"
+        autocomplete="off"
+        required
+      >
     </div>
-</div>
 
+    <div class="field">
+      <label for="cardNumber">Barcode number</label>
 
-<!-- =============================================================
-     CAMERA SCANNER
-============================================================= -->
-
-<div
-    id="scanner"
-    class="scanner"
->
-
-    <div class="scanner-header">
-
-        <div class="scanner-title">
-            Scan barcode
-        </div>
+      <div class="input-row">
+        <input
+          id="cardNumber"
+          type="text"
+          inputmode="numeric"
+          placeholder="Scan or enter number"
+          autocomplete="off"
+          required
+        >
 
         <button
-            type="button"
-            class="scanner-close"
-            onclick="stopScanner()"
+          class="scan-inline"
+          id="scanButton"
+          type="button"
         >
-            Close
+          Scan
         </button>
+      </div>
 
+      <div class="hint">
+        You can scan the barcode with your camera or enter it manually.
+      </div>
+
+      <div class="error hidden" id="numberError"></div>
     </div>
 
-    <div class="camera-container">
+    <div class="field">
+      <label for="cardType">Barcode type</label>
 
-        <video
-            id="camera"
-            autoplay
-            muted
-            playsinline
-        ></video>
-
-        <div class="scan-frame"></div>
-
+      <select id="cardType">
+        <option value="EAN13">EAN-13</option>
+        <option value="EAN8">EAN-8</option>
+        <option value="UPC">UPC-A</option>
+        <option value="CODE128">Code 128</option>
+      </select>
     </div>
 
-    <div class="scanner-help">
-        Hold the barcode inside the box.
+    <div class="field">
+      <label for="cardColour">Card colour</label>
+
+      <input
+        id="cardColour"
+        type="color"
+        value="#4f8cff"
+        style="height:48px;padding:4px"
+      >
     </div>
+
+    <div class="form-actions">
+      <button
+        class="cancel-button"
+        id="formCancel"
+        type="button"
+      >
+        Cancel
+      </button>
+
+      <button
+        class="save-button"
+        type="submit"
+      >
+        Save card
+      </button>
+    </div>
+
+  </form>
+</div>
+```
+
+  </div>
+
+  <!-- Camera scanner -->
+
+  <div class="modal" id="scannerModal" aria-hidden="true">
+
+```
+<div class="scanner">
+
+  <video
+    id="scannerVideo"
+    autoplay
+    muted
+    playsinline
+  ></video>
+
+  <div class="scanner-top">
+    <div class="scanner-title">Scan barcode</div>
+
+    <button
+      class="scanner-close"
+      id="scannerClose"
+      type="button"
+      aria-label="Close scanner"
+    >
+      ×
+    </button>
+  </div>
+
+  <div class="scanner-overlay">
+    <div class="scan-box"></div>
+  </div>
+
+  <div class="scanner-bottom">
+    <div class="scanner-status" id="scannerStatus">
+      Point the camera at a barcode
+    </div>
+  </div>
 
 </div>
+```
 
+  </div>
 
-<!-- =============================================================
-     BARCODE VIEWER
-============================================================= -->
+  <!-- Fullscreen barcode viewer -->
 
-<div
-    id="viewer"
-    class="viewer"
->
+  <div class="modal" id="viewerModal" aria-hidden="true">
 
-    <div class="viewer-header">
+```
+<div class="viewer">
 
-        <button
-            type="button"
-            class="back-button"
-            onclick="closeViewer()"
-        >
-            ‹ Back
-        </button>
+  <div class="viewer-header">
+    <div class="viewer-name" id="viewerName"></div>
 
-        <div
-            id="viewerTitle"
-            class="viewer-title"
-        ></div>
+    <button
+      class="viewer-close"
+      id="viewerClose"
+      type="button"
+      aria-label="Close"
+    >
+      ×
+    </button>
+  </div>
 
-        <div class="viewer-spacer"></div>
+  <div class="viewer-body">
 
+    <div class="viewer-barcode">
+      <svg id="viewerBarcode"></svg>
     </div>
 
-    <div class="barcode-content">
+    <div class="viewer-number" id="viewerNumber"></div>
 
-        <svg id="barcode"></svg>
+  </div>
 
-        <div
-            id="viewerNumber"
-            class="barcode-number"
-        ></div>
-
-        <div class="viewer-help">
-            Show this barcode at the checkout.<br>
-            Keep the screen flat and reasonably bright.
-        </div>
-
-        <button
-            type="button"
-            class="viewer-edit"
-            onclick="editViewedCard()"
-        >
-            Edit card
-        </button>
-
-    </div>
+  <div class="viewer-footer">
+    Show this barcode to the scanner
+  </div>
 
 </div>
+```
+
+  </div>
+
+  <!--
+    JsBarcode is used only to DRAW the stored barcodes.
+    ZXing is used only to SCAN barcodes from the camera.
+  -->
+
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+
+  <script type="module">
+
+    import {
+      BrowserMultiFormatReader
+    } from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
 
 
-<script>
-"use strict";
+    // ------------------------------------------------------------
+    // Storage
+    // ------------------------------------------------------------
 
-/*
- * ================================================================
- * DATA
- * ================================================================
- */
+    const STORAGE_KEY = "my-loyalty-cards-v1";
+    const THEME_KEY = "my-loyalty-cards-theme";
 
-const STORAGE_KEY = "loyalty-cards-v1";
-
-let cards = loadCards();
-
-let editingId = null;
-let viewingId = null;
-
-let cameraStream = null;
-let scannerInterval = null;
-
-let wakeLock = null;
+    let cards = [];
+    let editingId = null;
 
 
-/*
- * Retailer colours are purely cosmetic.
- *
- * Unknown retailers get a neutral icon.
- */
-const RETAILER_STYLES = {
-    "lidl": {
-        background: "#0050aa",
-        foreground: "#ffffff"
-    },
-
-    "asda": {
-        background: "#65b32e",
-        foreground: "#ffffff"
-    },
-
-    "tesco": {
-        background: "#00539f",
-        foreground: "#ffffff"
-    },
-
-    "sainsbury's": {
-        background: "#f5a800",
-        foreground: "#ffffff"
-    },
-
-    "sainsburys": {
-        background: "#f5a800",
-        foreground: "#ffffff"
-    },
-
-    "morrisons": {
-        background: "#007a3d",
-        foreground: "#ffffff"
-    },
-
-    "boots": {
-        background: "#005eb8",
-        foreground: "#ffffff"
-    },
-
-    "co-op": {
-        background: "#5b2c83",
-        foreground: "#ffffff"
-    },
-
-    "waitrose": {
-        background: "#006b3f",
-        foreground: "#ffffff"
+    function loadCards() {
+      try {
+        cards = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      } catch {
+        cards = [];
+      }
     }
-};
 
 
-/*
- * ================================================================
- * STORAGE
- * ================================================================
- */
-
-function loadCards() {
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-
-        if (!stored) {
-            return [];
-        }
-
-        const parsed = JSON.parse(stored);
-
-        return Array.isArray(parsed)
-            ? parsed
-            : [];
-
-    } catch (error) {
-        console.error("Unable to load cards:", error);
-        return [];
+    function saveCards() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
     }
-}
 
 
-function saveCards() {
-    localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(cards)
-    );
-}
+    // ------------------------------------------------------------
+    // DOM
+    // ------------------------------------------------------------
+
+    const cardsElement = document.getElementById("cards");
+    const emptyState = document.getElementById("emptyState");
+
+    const editModal = document.getElementById("editModal");
+    const modalTitle = document.getElementById("modalTitle");
+
+    const cardForm = document.getElementById("cardForm");
+    const cardName = document.getElementById("cardName");
+    const cardNumber = document.getElementById("cardNumber");
+    const cardType = document.getElementById("cardType");
+    const cardColour = document.getElementById("cardColour");
+    const numberError = document.getElementById("numberError");
+
+    const scannerModal = document.getElementById("scannerModal");
+    const scannerVideo = document.getElementById("scannerVideo");
+    const scannerStatus = document.getElementById("scannerStatus");
+
+    const viewerModal = document.getElementById("viewerModal");
+    const viewerName = document.getElementById("viewerName");
+    const viewerNumber = document.getElementById("viewerNumber");
+    const viewerBarcode = document.getElementById("viewerBarcode");
 
 
-/*
- * ================================================================
- * RENDER MAIN PAGE
- * ================================================================
- */
+    // ------------------------------------------------------------
+    // Theme
+    // ------------------------------------------------------------
 
-function renderCards() {
+    function applyTheme(theme) {
+      if (theme === "light") {
+        document.documentElement.dataset.theme = "light";
+        document.getElementById("themeButton").textContent = "🌙";
+      } else {
+        document.documentElement.dataset.theme = "dark";
+        document.getElementById("themeButton").textContent = "☀️";
+      }
 
-    const container =
-        document.getElementById("cards");
+      localStorage.setItem(THEME_KEY, theme);
+    }
 
-    if (cards.length === 0) {
 
-        container.innerHTML = `
-            <div class="empty">
-                <div class="empty-plus">+</div>
-                <br>
-                Add your first loyalty card.
-            </div>
-        `;
+    function loadTheme() {
+      const saved = localStorage.getItem(THEME_KEY);
 
+      if (saved) {
+        applyTheme(saved);
         return;
+      }
+
+      // Prefer the device's colour scheme.
+      const prefersLight =
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: light)").matches;
+
+      applyTheme(prefersLight ? "light" : "dark");
     }
 
-    container.innerHTML = cards
-        .map(card => createCardHTML(card))
-        .join("");
-}
+
+    document.getElementById("themeButton").addEventListener("click", () => {
+      const current =
+        document.documentElement.dataset.theme === "light"
+          ? "light"
+          : "dark";
+
+      applyTheme(current === "dark" ? "light" : "dark");
+    });
 
 
-function createCardHTML(card) {
+    // ------------------------------------------------------------
+    // Barcode helpers
+    // ------------------------------------------------------------
 
-    const style =
-        getRetailerStyle(card.name);
+    function normaliseNumber(value) {
+      return value.replace(/[^0-9A-Za-z]/g, "");
+    }
 
-    const initials =
-        getInitials(card.name);
 
-    return `
-        <article class="loyalty-card">
+    function barcodeFormatForType(type) {
+      switch (type) {
+        case "EAN13":
+          return "EAN_13";
 
-            <div
-                class="card-logo"
-                style="
-                    background:${style.background};
-                    color:${style.foreground};
-                "
-            >
-                ${escapeHTML(initials)}
-            </div>
+        case "EAN8":
+          return "EAN_8";
 
-            <div class="card-info">
+        case "UPC":
+          return "UPC_A";
 
-                <div class="card-name">
-                    ${escapeHTML(card.name)}
-                </div>
+        case "CODE128":
+          return "CODE_128";
 
-                <div class="card-number">
-                    ${escapeHTML(formatNumber(card.number))}
-                </div>
+        default:
+          return null;
+      }
+    }
 
+
+    function typeForZXingFormat(format) {
+      const name =
+        typeof format === "string"
+          ? format
+          : format?.toString?.() || "";
+
+      if (name.includes("EAN_13")) {
+        return "EAN13";
+      }
+
+      if (name.includes("EAN_8")) {
+        return "EAN8";
+      }
+
+      if (name.includes("UPC_A")) {
+        return "UPC";
+      }
+
+      if (name.includes("CODE_128")) {
+        return "CODE128";
+      }
+
+      return null;
+    }
+
+
+    function isValidForType(value, type) {
+      if (!value) {
+        return false;
+      }
+
+      switch (type) {
+
+        case "EAN13":
+          return /^\d{12,13}$/.test(value);
+
+        case "EAN8":
+          return /^\d{7,8}$/.test(value);
+
+        case "UPC":
+          return /^\d{11,12}$/.test(value);
+
+        case "CODE128":
+          return value.length > 0;
+
+        default:
+          return false;
+      }
+    }
+
+
+    function prepareBarcodeValue(value, type) {
+      value = normaliseNumber(value);
+
+      // JsBarcode can calculate the check digit when given
+      // 12 digits for EAN-13, 11 for UPC-A, etc.
+      return value;
+    }
+
+
+    function renderBarcode(element, value, type) {
+
+      const format = {
+        EAN13: "ean13",
+        EAN8: "ean8",
+        UPC: "upc",
+        CODE128: "code128"
+      }[type];
+
+      if (!format) {
+        return;
+      }
+
+      element.innerHTML = "";
+
+      try {
+        JsBarcode(element, prepareBarcodeValue(value, type), {
+          format,
+          lineColor: "#000000",
+          background: "#ffffff",
+          width: 2,
+          height: 90,
+          displayValue: true,
+          fontSize: 15,
+          margin: 5,
+          textMargin: 5
+        });
+      } catch (error) {
+        console.error("Could not render barcode:", error);
+      }
+    }
+
+
+    // ------------------------------------------------------------
+    // Render cards
+    // ------------------------------------------------------------
+
+    function renderCards() {
+
+      cardsElement.innerHTML = "";
+
+      emptyState.classList.toggle("hidden", cards.length !== 0);
+
+      for (const card of cards) {
+
+        const element = document.createElement("article");
+        element.className = "card";
+
+        element.innerHTML = `
+          <div
+            class="card-colour"
+            style="background:${escapeHtml(card.colour || "#4f8cff")}"
+          ></div>
+
+          <div class="card-header">
+
+            <div>
+              <div class="card-name">${escapeHtml(card.name)}</div>
+              <div class="card-number">${escapeHtml(card.number)}</div>
             </div>
 
             <div class="card-actions">
+              <button
+                class="small-button edit-card"
+                type="button"
+                data-id="${card.id}"
+              >Edit</button>
 
-                <button
-                    type="button"
-                    class="show-button"
-                    onclick="showCard('${card.id}')"
-                >
-                    Show
-                </button>
-
-                <button
-                    type="button"
-                    class="edit-button"
-                    aria-label="Edit ${escapeHTML(card.name)}"
-                    onclick="openEditor('${card.id}')"
-                >
-                    ⋯
-                </button>
-
+              <button
+                class="small-button danger delete-card"
+                type="button"
+                data-id="${card.id}"
+              >Delete</button>
             </div>
 
-        </article>
-    `;
-}
+          </div>
 
+          <div class="barcode-container">
+            <svg class="card-barcode"></svg>
+          </div>
 
-/*
- * ================================================================
- * CARD EDITOR
- * ================================================================
- */
+          <button
+            class="view-button"
+            type="button"
+            data-id="${card.id}"
+          >
+            Show fullscreen
+          </button>
+        `;
 
-function openEditor(id = null) {
+        cardsElement.appendChild(element);
 
-    editingId = id;
-
-    const editor =
-        document.getElementById("editor");
-
-    const title =
-        document.getElementById("editorTitle");
-
-    const deleteButton =
-        document.getElementById("deleteButton");
-
-    const nameInput =
-        document.getElementById("cardName");
-
-    const numberInput =
-        document.getElementById("cardNumber");
-
-    const formatInput =
-        document.getElementById("barcodeFormat");
-
-    const card =
-        id
-            ? cards.find(c => c.id === id)
-            : null;
-
-    if (card) {
-
-        title.textContent = "Edit card";
-
-        nameInput.value = card.name;
-
-        numberInput.value = card.number;
-
-        formatInput.value = card.format;
-
-        deleteButton.style.display =
-            "block";
-
-    } else {
-
-        title.textContent = "Add card";
-
-        nameInput.value = "";
-
-        numberInput.value = "";
-
-        formatInput.value = "EAN13";
-
-        deleteButton.style.display =
-            "none";
-    }
-
-    editor.classList.add("visible");
-
-    setTimeout(() => {
-
-        nameInput.focus();
-
-    }, 150);
-}
-
-
-function closeEditor() {
-
-    document
-        .getElementById("editor")
-        .classList.remove("visible");
-
-    editingId = null;
-}
-
-
-function handleModalBackground(event) {
-
-    if (event.target.id === "editor") {
-        closeEditor();
-    }
-}
-
-
-function saveCard() {
-
-    const name =
-        document
-            .getElementById("cardName")
-            .value
-            .trim();
-
-    const number =
-        document
-            .getElementById("cardNumber")
-            .value
-            .replace(/\s+/g, "")
-            .trim();
-
-    const format =
-        document
-            .getElementById("barcodeFormat")
-            .value;
-
-    if (!name) {
-
-        alert("Please enter a card name.");
-
-        return;
-    }
-
-    if (!number) {
-
-        alert("Please enter a barcode number.");
-
-        return;
-    }
-
-    if (!validateBarcode(number, format)) {
-
-        alert(
-            getBarcodeValidationMessage(format)
+        renderBarcode(
+          element.querySelector(".card-barcode"),
+          card.number,
+          card.type
         );
-
-        return;
+      }
     }
 
-    if (editingId) {
 
-        const card =
-            cards.find(c => c.id === editingId);
-
-        if (card) {
-
-            card.name = name;
-            card.number = number;
-            card.format = format;
-        }
-
-    } else {
-
-        cards.push({
-            id: createId(),
-            name,
-            number,
-            format
-        });
-    }
-
-    saveCards();
-
-    renderCards();
-
-    closeEditor();
-}
-
-
-function deleteCurrentCard() {
-
-    if (!editingId) {
-        return;
-    }
-
-    const card =
-        cards.find(c => c.id === editingId);
-
-    if (!card) {
-        return;
-    }
-
-    if (
-        !confirm(
-            `Delete "${card.name}"?`
-        )
-    ) {
-        return;
-    }
-
-    cards =
-        cards.filter(
-            c => c.id !== editingId
-        );
-
-    saveCards();
-
-    renderCards();
-
-    closeEditor();
-}
-
-
-/*
- * ================================================================
- * BARCODE VALIDATION
- * ================================================================
- */
-
-function validateBarcode(number, format) {
-
-    switch (format) {
-
-        case "EAN13":
-            return /^\d{13}$/.test(number)
-                && validEAN13(number);
-
-        case "EAN8":
-            return /^\d{8}$/.test(number)
-                && validEAN8(number);
-
-        case "UPC":
-            return /^\d{12}$/.test(number)
-                && validUPC(number);
-
-        case "CODE128":
-            return number.length > 0;
-
-        default:
-            return false;
-    }
-}
-
-
-function validEAN13(value) {
-
-    const digits =
-        value.split("").map(Number);
-
-    let sum = 0;
-
-    for (let i = 0; i < 12; i++) {
-
-        sum +=
-            digits[i] *
-            (i % 2 === 0 ? 1 : 3);
-    }
-
-    const check =
-        (10 - (sum % 10)) % 10;
-
-    return check === digits[12];
-}
-
-
-function validEAN8(value) {
-
-    const digits =
-        value.split("").map(Number);
-
-    let sum = 0;
-
-    for (let i = 0; i < 7; i++) {
-
-        sum +=
-            digits[i] *
-            (i % 2 === 0 ? 3 : 1);
-    }
-
-    const check =
-        (10 - (sum % 10)) % 10;
-
-    return check === digits[7];
-}
-
-
-function validUPC(value) {
-
-    const digits =
-        value.split("").map(Number);
-
-    let sum = 0;
-
-    for (let i = 0; i < 11; i++) {
-
-        sum +=
-            digits[i] *
-            (i % 2 === 0 ? 3 : 1);
-    }
-
-    const check =
-        (10 - (sum % 10)) % 10;
-
-    return check === digits[11];
-}
-
-
-function getBarcodeValidationMessage(format) {
-
-    switch (format) {
-
-        case "EAN13":
-            return "EAN-13 must contain 13 digits with a valid check digit.";
-
-        case "EAN8":
-            return "EAN-8 must contain 8 digits with a valid check digit.";
-
-        case "UPC":
-            return "UPC-A must contain 12 digits with a valid check digit.";
-
-        default:
-            return "Please enter a valid barcode.";
-    }
-}
-
-
-/*
- * ================================================================
- * BARCODE VIEWER
- * ================================================================
- */
-
-async function showCard(id) {
-
-    const card =
-        cards.find(c => c.id === id);
-
-    if (!card) {
-        return;
-    }
-
-    viewingId = id;
-
-    document
-        .getElementById("viewerTitle")
-        .textContent = card.name;
-
-    document
-        .getElementById("viewerNumber")
-        .textContent =
-            formatNumber(card.number);
-
-    const barcode =
-        document.getElementById("barcode");
-
-    /*
-     * Clear previous barcode.
-     */
-    barcode.innerHTML = "";
-
-    try {
-
-        JsBarcode(
-            barcode,
-            card.number,
-            {
-                format: card.format,
-
-                /*
-                 * These dimensions deliberately favour
-                 * physical scanner readability.
-                 */
-                width: 3,
-                height: 190,
-
-                displayValue: false,
-
-                margin: 18,
-
-                background: "#ffffff",
-
-                lineColor: "#000000"
-            }
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Barcode rendering failed:",
-            error
-        );
-
-        alert(
-            "This barcode could not be rendered. Check the barcode type and number."
-        );
-
-        return;
-    }
-
-    document
-        .getElementById("viewer")
-        .classList.add("visible");
-
-    /*
-     * Try to prevent the screen sleeping while
-     * the barcode is displayed.
-     */
-    await requestWakeLock();
-}
-
-
-async function closeViewer() {
-
-    document
-        .getElementById("viewer")
-        .classList.remove("visible");
-
-    viewingId = null;
-
-    await releaseWakeLock();
-}
-
-
-function editViewedCard() {
-
-    const id = viewingId;
-
-    closeViewer();
-
-    if (id) {
-        openEditor(id);
-    }
-}
-
-
-/*
- * ================================================================
- * SCREEN WAKE LOCK
- * ================================================================
- */
-
-async function requestWakeLock() {
-
-    if (!("wakeLock" in navigator)) {
-        return;
-    }
-
-    try {
-
-        wakeLock =
-            await navigator.wakeLock.request(
-                "screen"
-            );
-
-    } catch (error) {
-
-        /*
-         * Wake Lock is optional.
-         * Not having it does not affect the barcode.
-         */
-
-        console.log(
-            "Screen wake lock unavailable."
-        );
-    }
-}
-
-
-async function releaseWakeLock() {
-
-    if (!wakeLock) {
-        return;
-    }
-
-    try {
-        await wakeLock.release();
-    } catch (_) {
-        // Nothing to do.
-    }
-
-    wakeLock = null;
-}
-
-
-/*
- * If the browser releases the wake lock when
- * the page is backgrounded, try to reacquire it
- * when the user comes back.
- */
-document.addEventListener(
-    "visibilitychange",
-    async () => {
-
-        if (
-            document.visibilityState === "visible" &&
-            viewingId
-        ) {
-            await requestWakeLock();
-        }
-    }
-);
-
-
-/*
- * ================================================================
- * CAMERA BARCODE SCANNING
- * ================================================================
- *
- * Uses the browser's native BarcodeDetector API.
- *
- * If the browser does not provide BarcodeDetector,
- * the app explains that scanning isn't available
- * rather than silently failing.
- */
-
-async function startScanner() {
-
-    if (!("BarcodeDetector" in window)) {
-
-        alert(
-            "Barcode scanning isn't available in this browser. " +
-            "You can type the barcode number instead."
-        );
-
-        return;
-    }
-
-    try {
-
-        const supported =
-            await BarcodeDetector.getSupportedFormats();
-
-        const formats =
-            supported.filter(format =>
-                [
-                    "ean_13",
-                    "ean_8",
-                    "upc_a",
-                    "code_128"
-                ].includes(format)
-            );
-
-        if (formats.length === 0) {
-
-            alert(
-                "This browser doesn't support the barcode formats needed here."
-            );
-
-            return;
-        }
-
-        const detector =
-            new BarcodeDetector({
-                formats
-            });
-
-        const video =
-            document.getElementById("camera");
-
-        cameraStream =
-            await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: {
-                        ideal: "environment"
-                    }
-                },
-                audio: false
-            });
-
-        video.srcObject =
-            cameraStream;
-
-        await video.play();
-
-        document
-            .getElementById("scanner")
-            .classList.add("visible");
-
-        /*
-         * BarcodeDetector does not provide a continuous
-         * scanning callback, so poll the video.
-         */
-        scannerInterval =
-            setInterval(
-                async () => {
-
-                    if (
-                        video.readyState <
-                        HTMLMediaElement.HAVE_ENOUGH_DATA
-                    ) {
-                        return;
-                    }
-
-                    try {
-
-                        const detected =
-                            await detector.detect(video);
-
-                        if (
-                            detected &&
-                            detected.length > 0
-                        ) {
-
-                            const result =
-                                detected[0];
-
-                            await handleDetectedBarcode(
-                                result.rawValue
-                            );
-                        }
-
-                    } catch (error) {
-
-                        console.debug(
-                            "Barcode detection error:",
-                            error
-                        );
-                    }
-
-                },
-                250
-            );
-
-    } catch (error) {
-
-        console.error(
-            "Unable to start camera:",
-            error
-        );
-
-        alert(
-            "Unable to access the camera. " +
-            "Check that camera permission is allowed for this site."
-        );
-
-        stopScanner();
-    }
-}
-
-
-async function handleDetectedBarcode(value) {
-
-    if (!value) {
-        return;
-    }
-
-    stopScanner();
-
-    /*
-     * Put the scanned number into the editor.
-     */
-    document
-        .getElementById("cardNumber")
-        .value = value;
-
-    /*
-     * Try to select the most appropriate format.
-     */
-    const format =
-        guessBarcodeFormat(value);
-
-    if (format) {
-
-        document
-            .getElementById("barcodeFormat")
-            .value = format;
-    }
-}
-
-
-function stopScanner() {
-
-    if (scannerInterval) {
-
-        clearInterval(
-            scannerInterval
-        );
-
-        scannerInterval = null;
-    }
-
-    if (cameraStream) {
-
-        cameraStream
-            .getTracks()
-            .forEach(track =>
-                track.stop()
-            );
-
-        cameraStream = null;
-    }
-
-    const video =
-        document.getElementById("camera");
-
-    video.srcObject = null;
-
-    document
-        .getElementById("scanner")
-        .classList.remove("visible");
-}
-
-
-function guessBarcodeFormat(value) {
-
-    if (
-        /^\d{13}$/.test(value) &&
-        validEAN13(value)
-    ) {
-        return "EAN13";
-    }
-
-    if (
-        /^\d{8}$/.test(value) &&
-        validEAN8(value)
-    ) {
-        return "EAN8";
-    }
-
-    if (
-        /^\d{12}$/.test(value) &&
-        validUPC(value)
-    ) {
-        return "UPC";
-    }
-
-    return "CODE128";
-}
-
-
-/*
- * ================================================================
- * HELPERS
- * ================================================================
- */
-
-function createId() {
-
-    if (
-        window.crypto &&
-        typeof crypto.randomUUID === "function"
-    ) {
-        return crypto.randomUUID();
-    }
-
-    return (
-        Date.now().toString(36) +
-        Math.random()
-            .toString(36)
-            .substring(2)
-    );
-}
-
-
-function getInitials(name) {
-
-    const words =
-        name
-            .trim()
-            .split(/\s+/)
-            .filter(Boolean);
-
-    if (words.length === 0) {
-        return "?";
-    }
-
-    if (words.length === 1) {
-
-        return words[0]
-            .substring(0, 2)
-            .toUpperCase();
-    }
-
-    return (
-        words[0][0] +
-        words[1][0]
-    ).toUpperCase();
-}
-
-
-function getRetailerStyle(name) {
-
-    const key =
-        name
-            .trim()
-            .toLowerCase();
-
-    return (
-        RETAILER_STYLES[key] ||
-        {
-            background: "#e8e8eb",
-            foreground: "#222222"
-        }
-    );
-}
-
-
-function formatNumber(number) {
-
-    /*
-     * A little visual spacing makes the number
-     * easier to recognise without changing the
-     * actual stored value.
-     */
-    return number
-        .replace(/\s+/g, "")
-        .replace(
-            /(.{4})/g,
-            "$1 "
-        )
-        .trim();
-}
-
-
-function escapeHTML(value) {
-
-    return String(value)
+    function escapeHtml(value) {
+      return String(value)
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
-}
+    }
 
 
-/*
- * ================================================================
- * INITIALISE
- * ================================================================
- */
+    // ------------------------------------------------------------
+    // Add / edit
+    // ------------------------------------------------------------
 
-renderCards();
+    function openAddModal() {
+
+      editingId = null;
+
+      modalTitle.textContent = "Add card";
+
+      cardForm.reset();
+
+      cardType.value = "EAN13";
+      cardColour.value = "#4f8cff";
+
+      clearNumberError();
+
+      editModal.classList.add("open");
+      editModal.setAttribute("aria-hidden", "false");
+
+      setTimeout(() => cardName.focus(), 100);
+    }
 
 
-/*
- * Escape key is useful when testing on desktop.
- */
-document.addEventListener(
-    "keydown",
-    event => {
+    function openEditModal(id) {
 
-        if (event.key !== "Escape") {
-            return;
+      const card = cards.find(x => x.id === id);
+
+      if (!card) {
+        return;
+      }
+
+      editingId = id;
+
+      modalTitle.textContent = "Edit card";
+
+      cardName.value = card.name;
+      cardNumber.value = card.number;
+      cardType.value = card.type;
+      cardColour.value = card.colour || "#4f8cff";
+
+      clearNumberError();
+
+      editModal.classList.add("open");
+      editModal.setAttribute("aria-hidden", "false");
+    }
+
+
+    function closeEditModal() {
+
+      editModal.classList.remove("open");
+      editModal.setAttribute("aria-hidden", "true");
+
+      editingId = null;
+    }
+
+
+    function clearNumberError() {
+      numberError.textContent = "";
+      numberError.classList.add("hidden");
+    }
+
+
+    function showNumberError(message) {
+      numberError.textContent = message;
+      numberError.classList.remove("hidden");
+    }
+
+
+    cardForm.addEventListener("submit", event => {
+
+      event.preventDefault();
+
+      const name = cardName.value.trim();
+      const number = normaliseNumber(cardNumber.value.trim());
+      const type = cardType.value;
+      const colour = cardColour.value;
+
+      if (!name) {
+        cardName.focus();
+        return;
+      }
+
+      if (!isValidForType(number, type)) {
+
+        showNumberError(
+          type === "EAN13"
+            ? "Enter a valid 12 or 13 digit EAN-13 number."
+            : type === "EAN8"
+              ? "Enter a valid 7 or 8 digit EAN-8 number."
+              : type === "UPC"
+                ? "Enter a valid 11 or 12 digit UPC-A number."
+                : "Enter a barcode value."
+        );
+
+        return;
+      }
+
+      clearNumberError();
+
+      if (editingId) {
+
+        const card = cards.find(x => x.id === editingId);
+
+        if (card) {
+          card.name = name;
+          card.number = number;
+          card.type = type;
+          card.colour = colour;
+        }
+
+      } else {
+
+        cards.push({
+          id: crypto.randomUUID
+            ? crypto.randomUUID()
+            : String(Date.now()),
+
+          name,
+          number,
+          type,
+          colour
+        });
+      }
+
+      saveCards();
+      renderCards();
+      closeEditModal();
+    });
+
+
+    document.getElementById("addButton")
+      .addEventListener("click", openAddModal);
+
+    document.getElementById("editClose")
+      .addEventListener("click", closeEditModal);
+
+    document.getElementById("formCancel")
+      .addEventListener("click", closeEditModal);
+
+
+    cardsElement.addEventListener("click", event => {
+
+      const button = event.target.closest("button");
+
+      if (!button) {
+        return;
+      }
+
+      const id = button.dataset.id;
+
+      if (!id) {
+        return;
+      }
+
+      if (button.classList.contains("edit-card")) {
+        openEditModal(id);
+        return;
+      }
+
+      if (button.classList.contains("delete-card")) {
+
+        const card = cards.find(x => x.id === id);
+
+        if (!card) {
+          return;
         }
 
         if (
-            document
-                .getElementById("viewer")
-                .classList
-                .contains("visible")
+          confirm(`Delete "${card.name}"?`)
         ) {
-            closeViewer();
-
-        } else if (
-            document
-                .getElementById("scanner")
-                .classList
-                .contains("visible")
-        ) {
-            stopScanner();
-
-        } else if (
-            document
-                .getElementById("editor")
-                .classList
-                .contains("visible")
-        ) {
-            closeEditor();
+          cards = cards.filter(x => x.id !== id);
+          saveCards();
+          renderCards();
         }
+
+        return;
+      }
+
+      if (button.classList.contains("view-button")) {
+        openViewer(id);
+      }
+    });
+
+
+    // ------------------------------------------------------------
+    // Fullscreen viewer
+    // ------------------------------------------------------------
+
+    let wakeLock = null;
+
+
+    async function requestWakeLock() {
+
+      if (!("wakeLock" in navigator)) {
+        return;
+      }
+
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+      } catch {
+        wakeLock = null;
+      }
     }
-);
-</script>
+
+
+    async function releaseWakeLock() {
+
+      if (!wakeLock) {
+        return;
+      }
+
+      try {
+        await wakeLock.release();
+      } catch {
+        // Ignore.
+      }
+
+      wakeLock = null;
+    }
+
+
+    async function openViewer(id) {
+
+      const card = cards.find(x => x.id === id);
+
+      if (!card) {
+        return;
+      }
+
+      viewerName.textContent = card.name;
+      viewerNumber.textContent = card.number;
+
+      renderBarcode(
+        viewerBarcode,
+        card.number,
+        card.type
+      );
+
+      viewerModal.classList.add("open");
+      viewerModal.setAttribute("aria-hidden", "false");
+
+      await requestWakeLock();
+    }
+
+
+    async function closeViewer() {
+
+      viewerModal.classList.remove("open");
+      viewerModal.setAttribute("aria-hidden", "true");
+
+      await releaseWakeLock();
+    }
+
+
+    document.getElementById("viewerClose")
+      .addEventListener("click", closeViewer);
+
+
+    // ------------------------------------------------------------
+    // ZXing camera scanner
+    // ------------------------------------------------------------
+
+    const codeReader = new BrowserMultiFormatReader();
+
+    let scannerControls = null;
+
+
+    async function startScanner() {
+
+      scannerStatus.textContent =
+        "Starting camera…";
+
+      scannerModal.classList.add("open");
+      scannerModal.setAttribute("aria-hidden", "false");
+
+      try {
+
+        /*
+         * Ask the browser for available cameras.
+         *
+         * On iPhone/iPad, labels may initially be blank until
+         * camera permission has been granted, so we don't depend
+         * on the label being present.
+         */
+
+        const devices =
+          await BrowserMultiFormatReader.listVideoInputDevices();
+
+        let selectedDeviceId = undefined;
+
+        if (devices && devices.length > 0) {
+
+          const rearCamera =
+            devices.find(device =>
+              /back|rear|environment/i.test(device.label)
+            );
+
+          selectedDeviceId =
+            rearCamera?.deviceId ||
+            devices[0].deviceId;
+        }
+
+
+        scannerStatus.textContent =
+          "Point the camera at a barcode";
+
+
+        /*
+         * ZXing continuously examines frames from the camera.
+         *
+         * There is deliberately NO BarcodeDetector usage here.
+         */
+
+        scannerControls =
+          await codeReader.decodeFromVideoDevice(
+            selectedDeviceId,
+            scannerVideo,
+            (result, error) => {
+
+              if (!result) {
+                return;
+              }
+
+              handleScanResult(result);
+            }
+          );
+
+      } catch (error) {
+
+        console.error("Scanner error:", error);
+
+        let message =
+          "Could not access the camera.";
+
+        if (
+          error?.name === "NotAllowedError" ||
+          error?.name === "PermissionDeniedError"
+        ) {
+          message =
+            "Camera permission was denied. Allow camera access for this site and try again.";
+        } else if (
+          error?.name === "NotFoundError" ||
+          error?.name === "DevicesNotFoundError"
+        ) {
+          message =
+            "No camera was found on this device.";
+        } else if (
+          location.protocol !== "https:" &&
+          location.hostname !== "localhost"
+        ) {
+          message =
+            "Camera scanning requires HTTPS. GitHub Pages provides this automatically.";
+        }
+
+        scannerStatus.textContent = message;
+      }
+    }
+
+
+    function handleScanResult(result) {
+
+      const value = result.getText();
+
+      if (!value) {
+        return;
+      }
+
+      /*
+       * ZXing returns BarcodeFormat as an enum.
+       * Convert the supported formats into the names used
+       * by our form.
+       */
+
+      const type =
+        typeForZXingFormat(result.getBarcodeFormat());
+
+      if (!type) {
+
+        scannerStatus.textContent =
+          "Barcode detected, but this type isn't supported by the card form.";
+
+        return;
+      }
+
+
+      // Stop scanning immediately after a successful detection.
+      stopScanner();
+
+
+      /*
+       * Put the result into the card form.
+       *
+       * If the scanner was opened while editing an existing card,
+       * preserve that card's name/other settings.
+       */
+
+      cardNumber.value = value;
+      cardType.value = type;
+
+      clearNumberError();
+
+      closeScanner();
+
+      editModal.classList.add("open");
+      editModal.setAttribute("aria-hidden", "false");
+
+      /*
+       * If we're adding a card, focus the name so the user can
+       * simply type "Lidl", "Asda", etc. and save.
+       */
+      if (!editingId) {
+        setTimeout(() => cardName.focus(), 100);
+      }
+    }
+
+
+    function stopScanner() {
+
+      if (scannerControls) {
+
+        try {
+          scannerControls.stop();
+        } catch {
+          // Ignore.
+        }
+
+        scannerControls = null;
+      }
+
+      /*
+       * reset() is also used as a safety net for older ZXing
+       * builds / partially initialised scans.
+       */
+
+      try {
+        codeReader.reset();
+      } catch {
+        // Ignore.
+      }
+
+      if (scannerVideo.srcObject) {
+
+        const tracks =
+          scannerVideo.srcObject.getTracks();
+
+        for (const track of tracks) {
+          track.stop();
+        }
+
+        scannerVideo.srcObject = null;
+      }
+    }
+
+
+    function closeScanner() {
+
+      stopScanner();
+
+      scannerModal.classList.remove("open");
+      scannerModal.setAttribute("aria-hidden", "true");
+
+      scannerStatus.textContent =
+        "Point the camera at a barcode";
+    }
+
+
+    document.getElementById("scanButton")
+      .addEventListener("click", async () => {
+
+        /*
+         * If the user is editing an existing card, keep that
+         * state. Otherwise this is an add operation.
+         */
+        await startScanner();
+      });
+
+
+    document.getElementById("scannerClose")
+      .addEventListener("click", closeScanner);
+
+
+    // ------------------------------------------------------------
+    // Handle visibility changes
+    // ------------------------------------------------------------
+
+    document.addEventListener("visibilitychange", async () => {
+
+      if (
+        document.visibilityState === "visible" &&
+        viewerModal.classList.contains("open")
+      ) {
+        await requestWakeLock();
+      }
+    });
+
+
+    // ------------------------------------------------------------
+    // Escape key
+    // ------------------------------------------------------------
+
+    document.addEventListener("keydown", event => {
+
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (scannerModal.classList.contains("open")) {
+        closeScanner();
+      } else if (viewerModal.classList.contains("open")) {
+        closeViewer();
+      } else if (editModal.classList.contains("open")) {
+        closeEditModal();
+      }
+    });
+
+
+    // ------------------------------------------------------------
+    // Initialise
+    // ------------------------------------------------------------
+
+    loadTheme();
+    loadCards();
+    renderCards();
+
+  </script>
 
 </body>
 </html>
