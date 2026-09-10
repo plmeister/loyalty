@@ -24,6 +24,10 @@
         BarcodeFormat
     };
 
+    window.VIDEO_CONSTRAINTS = VIDEO_CONSTRAINTS;
+    window.escapeHtml = escapeHtml;
+    window.ZXING_FORMAT_NAMES = ZXING_FORMAT_NAMES;
+
     window.dispatchEvent(new Event("zxing-ready"));
 </script>
     <style>
@@ -652,7 +656,7 @@
         let rowB = "";
 
         for (const { char, type } of diff) {
-            const escaped = escapeHtml(char);
+            const escaped = window.escapeHtml(char);
 
             if (type === "same") {
                 rowA += `<span class="digit same">${escaped}</span>`;
@@ -754,7 +758,7 @@
 
         input.value = value;
         formatElement.textContent =
-            ZXING_FORMAT_NAMES.get(format) || format || inferFormat(value) || "Unknown";
+            window.ZXING_FORMAT_NAMES.get(format) || format || inferFormat(value) || "Unknown";
 
         update();
     }
@@ -766,7 +770,7 @@
 
         state.history.unshift({
             value,
-            format: ZXING_FORMAT_NAMES.get(format) || format || inferFormat(value) || "Unknown",
+            format: window.ZXING_FORMAT_NAMES.get(format) || format || inferFormat(value) || "Unknown",
             time: Date.now()
         });
 
@@ -783,8 +787,8 @@
 
         els.history.innerHTML = state.history.map((item, index) => `
             <div class="history-item">
-                <span class="history-value">${escapeHtml(item.value)}</span>
-                <span class="history-format">${escapeHtml(item.format)}</span>
+                <span class="history-value">${window.escapeHtml(item.value)}</span>
+                <span class="history-format">${window.escapeHtml(item.format)}</span>
                 <button data-history-index="${index}">Use</button>
             </div>
         `).join("");
@@ -823,7 +827,7 @@ async function openScanner(target) {
         state.reader = new BrowserMultiFormatReader();
 
         state.controls = await state.reader.decodeFromConstraints(
-            VIDEO_CONSTRAINTS,
+            window.VIDEO_CONSTRAINTS,
             els.scannerVideo,
             (result, error) => {
                 if (!result) {
