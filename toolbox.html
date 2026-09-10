@@ -13,6 +13,12 @@
         BarcodeFormat
     } from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
 
+    import {
+        VIDEO_CONSTRAINTS,
+        escapeHtml,
+        ZXING_FORMAT_NAMES
+    } from "./scanner.js";
+
     window.ZXingBrowser = {
         BrowserMultiFormatReader,
         BarcodeFormat
@@ -230,6 +236,12 @@
             font-weight: 700;
         }
 
+        .digit.added {
+            background: rgb(52 199 89 / 25%);
+            color: #30d158;
+            font-weight: 700;
+        }
+
         .digit.missing {
             color: #555;
             background: rgb(255 255 255 / 5%);
@@ -237,7 +249,7 @@
 
         .summary {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 8px;
             margin-top: 16px;
         }
@@ -468,23 +480,18 @@
 
         <div id="summary" class="summary" hidden>
             <div class="stat">
-                <div id="sameCount" class="stat-value">0</div>
-                <div class="stat-label">same positions</div>
+                <div id="sharedCount" class="stat-value">0</div>
+                <div class="stat-label">shared characters</div>
             </div>
 
             <div class="stat">
-                <div id="changedCount" class="stat-value">0</div>
-                <div class="stat-label">changed positions</div>
+                <div id="removedCount" class="stat-value">0</div>
+                <div class="stat-label">removed</div>
             </div>
 
             <div class="stat">
-                <div id="prefixLength" class="stat-value">0</div>
-                <div class="stat-label">common prefix</div>
-            </div>
-
-            <div class="stat">
-                <div id="suffixLength" class="stat-value">0</div>
-                <div class="stat-label">common suffix</div>
+                <div id="addedCount" class="stat-value">0</div>
+                <div class="stat-label">added</div>
             </div>
         </div>
 
@@ -534,38 +541,15 @@
         formatB: document.getElementById("formatB"),
         diffResult: document.getElementById("diffResult"),
         summary: document.getElementById("summary"),
-        sameCount: document.getElementById("sameCount"),
-        changedCount: document.getElementById("changedCount"),
-        prefixLength: document.getElementById("prefixLength"),
-        suffixLength: document.getElementById("suffixLength"),
+        sharedCount: document.getElementById("sharedCount"),
+        removedCount: document.getElementById("removedCount"),
+        addedCount: document.getElementById("addedCount"),
         analysis: document.getElementById("analysis"),
         history: document.getElementById("history"),
         scanner: document.getElementById("scanner"),
         scannerVideo: document.getElementById("scannerVideo"),
         scannerStatus: document.getElementById("scannerStatus")
     };
-
-    const formatNames = new Map([
-        ["EAN_13", "EAN-13"],
-        ["EAN_8", "EAN-8"],
-        ["UPC_A", "UPC-A"],
-        ["UPC_E", "UPC-E"],
-        ["CODE_128", "Code 128"],
-        ["CODE_39", "Code 39"],
-        ["ITF", "ITF"],
-        ["QR_CODE", "QR Code"],
-        ["DATA_MATRIX", "Data Matrix"],
-        ["AZTEC", "Aztec"]
-    ]);
-
-    function escapeHtml(value) {
-        return value
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
 
     function checksumEan(value) {
         if (!/^\d+$/.test(value)) {
@@ -619,50 +603,38 @@
         return "Unknown";
     }
 
-    function commonPrefix(a, b) {
-        const length = Math.min(a.length, b.length);
+    function lcsDiff(a, b) {
+        const m = a.length;
+        const n = b.length;
+        const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1));
 
-        for (let i = 0; i < length; i++) {
-            if (a[i] !== b[i]) {
-                return i;
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                dp[i][j] = a[i - 1] === b[j - 1]
+                    ? dp[i - 1][j - 1] + 1
+                    : Math.max(dp[i - 1][j], dp[i][j - 1]);
             }
         }
 
-        return length;
-    }
+        const result = [];
+        let i = m;
+        let j = n;
 
-    function commonSuffix(a, b) {
-        const length = Math.min(a.length, b.length);
-
-        for (let i = 1; i <= length; i++) {
-            if (a[a.length - i] !== b[b.length - i]) {
-                return i - 1;
-            }
-        }
-
-        return length;
-    }
-
-    function compareValues(a, b) {
-        const length = Math.max(a.length, b.length);
-
-        let same = 0;
-        let changed = 0;
-
-        for (let i = 0; i < length; i++) {
-            if (i < a.length && i < b.length && a[i] === b[i]) {
-                same++;
+        while (i > 0 || j > 0) {
+            if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+                result.unshift({ char: a[i - 1], type: "same" });
+                i--;
+                j--;
+            } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+                result.unshift({ char: b[j - 1], type: "added" });
+                j--;
             } else {
-                changed++;
+                result.unshift({ char: a[i - 1], type: "removed" });
+                i--;
             }
         }
 
-        return {
-            same,
-            changed,
-            prefix: commonPrefix(a, b),
-            suffix: commonSuffix(a, b)
-        };
+        return result;
     }
 
     function renderDiff(a, b) {
@@ -674,27 +646,21 @@
             return;
         }
 
-        const length = Math.max(a.length, b.length);
+        const diff = lcsDiff(a, b);
 
         let rowA = "";
         let rowB = "";
 
-        for (let i = 0; i < length; i++) {
-            const charA = a[i];
-            const charB = b[i];
+        for (const { char, type } of diff) {
+            const escaped = escapeHtml(char);
 
-            if (charA === undefined) {
-                rowA += '<span class="digit missing">·</span>';
+            if (type === "same") {
+                rowA += `<span class="digit same">${escaped}</span>`;
+                rowB += `<span class="digit same">${escaped}</span>`;
+            } else if (type === "removed") {
+                rowA += `<span class="digit changed">${escaped}</span>`;
             } else {
-                const cls = charA === charB ? "same" : "changed";
-                rowA += `<span class="digit ${cls}">${escapeHtml(charA)}</span>`;
-            }
-
-            if (charB === undefined) {
-                rowB += '<span class="digit missing">·</span>';
-            } else {
-                const cls = charA === charB ? "same" : "changed";
-                rowB += `<span class="digit ${cls}">${escapeHtml(charB)}</span>`;
+                rowB += `<span class="digit added">${escaped}</span>`;
             }
         }
 
@@ -709,15 +675,16 @@
             </div>
         `;
 
-        const result = compareValues(a, b);
+        const shared = diff.filter(d => d.type === "same").length;
+        const removed = diff.filter(d => d.type === "removed").length;
+        const added = diff.filter(d => d.type === "added").length;
 
-        els.sameCount.textContent = result.same;
-        els.changedCount.textContent = result.changed;
-        els.prefixLength.textContent = result.prefix;
-        els.suffixLength.textContent = result.suffix;
+        els.sharedCount.textContent = shared;
+        els.removedCount.textContent = removed;
+        els.addedCount.textContent = added;
         els.summary.hidden = false;
 
-        renderAnalysis(a, b, result);
+        renderAnalysis(a, b, { shared, removed, added });
     }
 
     function renderAnalysis(a, b, result) {
@@ -733,16 +700,18 @@
             );
         }
 
-        if (result.prefix > 0) {
-            lines.push(
-                `<strong>Common prefix:</strong> ${result.prefix} character${result.prefix === 1 ? "" : "s"}.`
-            );
-        }
+        if (a && b) {
+            const short = a.length <= b.length ? a : b;
+            const long = a.length <= b.length ? b : a;
+            const label = a.length <= b.length ? "A" : "B";
+            const otherLabel = a.length <= b.length ? "B" : "A";
+            const pos = long.indexOf(short);
 
-        if (result.suffix > 0) {
-            lines.push(
-                `<strong>Common suffix:</strong> ${result.suffix} character${result.suffix === 1 ? "" : "s"}.`
-            );
+            if (pos !== -1) {
+                lines.push(
+                    `<strong>Substring:</strong> ${label} is contained within ${otherLabel} at position ${pos}.`
+                );
+            }
         }
 
         const checksumA = checksumEan(a);
@@ -785,7 +754,7 @@
 
         input.value = value;
         formatElement.textContent =
-            formatNames.get(format) || format || inferFormat(value) || "Unknown";
+            ZXING_FORMAT_NAMES.get(format) || format || inferFormat(value) || "Unknown";
 
         update();
     }
@@ -797,7 +766,7 @@
 
         state.history.unshift({
             value,
-            format: formatNames.get(format) || format || inferFormat(value) || "Unknown",
+            format: ZXING_FORMAT_NAMES.get(format) || format || inferFormat(value) || "Unknown",
             time: Date.now()
         });
 
@@ -854,11 +823,7 @@ async function openScanner(target) {
         state.reader = new BrowserMultiFormatReader();
 
         state.controls = await state.reader.decodeFromConstraints(
-            {
-                video: {
-                    facingMode: { ideal: "environment" }
-                }
-            },
+            VIDEO_CONSTRAINTS,
             els.scannerVideo,
             (result, error) => {
                 if (!result) {

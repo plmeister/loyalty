@@ -1,3 +1,5 @@
+import { VIDEO_CONSTRAINTS } from "./scanner.js";
+
 const STORAGE_KEY = "my-loyalty-cards-v1";
 const THEME_KEY = "my-loyalty-cards-theme";
 
@@ -690,13 +692,7 @@ async function startScanner() {
         scanning = true;
 
         await scannerReader.decodeFromConstraints(
-            {
-                video: {
-                    facingMode: {
-                        ideal: "environment"
-                    }
-                }
-            },
+            VIDEO_CONSTRAINTS,
             scannerVideo,
             (result, error) => {
                 if (!scanning || !result) {
@@ -732,32 +728,19 @@ async function startScanner() {
 
 function typeForZXingFormat(format) {
     const B = window.ZXing.BarcodeFormat;
+    const name = Object.entries(B).find(([, v]) => v === format)?.[0];
 
-    switch (format) {
-        case B.EAN_13:
-            return "EAN13";
+    const map = {
+        EAN_13: "EAN13",
+        EAN_8: "EAN8",
+        UPC_A: "UPC",
+        CODE_128: "CODE128",
+        QR_CODE: "QR",
+        DATA_MATRIX: "DATAMATRIX",
+        AZTEC: "AZTEC"
+    };
 
-        case B.EAN_8:
-            return "EAN8";
-
-        case B.UPC_A:
-            return "UPC";
-
-        case B.CODE_128:
-            return "CODE128";
-
-        case B.QR_CODE:
-            return "QR";
-
-        case B.DATA_MATRIX:
-            return "DATAMATRIX";
-
-        case B.AZTEC:
-            return "AZTEC";
-
-        default:
-            return null;
-    }
+    return map[name] ?? null;
 }
 
 function stopScanner() {
