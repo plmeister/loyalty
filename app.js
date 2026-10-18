@@ -208,14 +208,8 @@ function openTransfer() {
     showScreen(transferScreen);
 }
 
-function openViewer(id) {
-    const card = cards.find(c => c.id === id);
-
-    if (!card) {
-        return;
-    }
-
-    viewingId = id;
+function displayCard(card) {
+    viewingId = card.id;
 
     viewerName.textContent = card.name;
 
@@ -224,9 +218,39 @@ function openViewer(id) {
         card.colour || "#2d7d46"
     );
 
-    showScreen(viewerScreen);
     renderCode(card);
+}
+
+function openViewer(id) {
+    const card = cards.find(c => c.id === id);
+
+    if (!card) {
+        return;
+    }
+
+    displayCard(card);
+    showScreen(viewerScreen);
     requestWakeLock();
+}
+
+function openAdjacentCard(step) {
+    if (!viewingId) {
+        return;
+    }
+
+    const index = cards.findIndex(c => c.id === viewingId);
+
+    if (index === -1) {
+        return;
+    }
+
+    const card = cards[index + step];
+
+    if (!card) {
+        return;
+    }
+
+    displayCard(card);
 }
 
 /* ------------------------------------------------------------------
@@ -401,6 +425,60 @@ viewerDeleteButton.addEventListener("click", () => {
 viewerEditButton.addEventListener("click", () => {
     if (viewingId) {
         openEditCard(viewingId);
+    }
+});
+
+/* ------------------------------------------------------------------
+   Viewer card flipping
+------------------------------------------------------------------ */
+
+let swipeStart = null;
+
+viewerScreen.addEventListener("pointerdown", event => {
+    if (event.target.closest("button")) {
+        return;
+    }
+
+    swipeStart = {
+        x: event.clientX,
+        y: event.clientY
+    };
+});
+
+viewerScreen.addEventListener("pointerup", event => {
+    if (!swipeStart) {
+        return;
+    }
+
+    const dx = event.clientX - swipeStart.x;
+    const dy = event.clientY - swipeStart.y;
+
+    swipeStart = null;
+
+    const horizontal = Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.5;
+
+    if (!horizontal) {
+        return;
+    }
+
+    openAdjacentCard(dx < 0 ? 1 : -1);
+});
+
+viewerScreen.addEventListener("pointercancel", () => {
+    swipeStart = null;
+});
+
+document.addEventListener("keydown", event => {
+    if (viewerScreen.classList.contains("hidden")) {
+        return;
+    }
+
+    if (event.key === "ArrowLeft") {
+        openAdjacentCard(-1);
+    }
+
+    if (event.key === "ArrowRight") {
+        openAdjacentCard(1);
     }
 });
 
@@ -1205,6 +1283,6 @@ renderCards();
 
 refreshNearby().then(() => {
     if (nearbyId) {
-        renderCards();
+        openViewer(nearbyId);
     }
 });
