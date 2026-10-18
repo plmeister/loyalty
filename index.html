@@ -32,6 +32,12 @@
         <h1>Loyalty Cards</h1>
 
         <div class="header-actions">
+            <button id="autoLocateButton" class="icon-button"
+                    aria-label="Auto-detect nearby cards"
+                    title="Auto-detect nearby cards">
+                📍
+            </button>
+
             <button id="themeButton" class="icon-button" aria-label="Toggle theme">
                 ◐
             </button>
@@ -101,6 +107,26 @@
                 Card colour
                 <input id="cardColour" type="color" value="#2d7d46">
             </label>
+
+            <div class="locations-section">
+                <div class="locations-heading">
+                    <h3>Shop locations</h3>
+                    <p>
+                        Optional. When auto-detect is on, a card whose saved
+                        location matches where you are gets surfaced at the
+                        top of your list.
+                    </p>
+                </div>
+
+                <div id="locationList" class="location-list"></div>
+
+                <button type="button" id="addLocationButton"
+                        class="secondary-button">
+                    📍 Add current location
+                </button>
+
+                <div id="locationStatus" class="location-status hidden"></div>
+            </div>
 
             <div class="form-actions">
                 <button type="submit" class="primary-button">

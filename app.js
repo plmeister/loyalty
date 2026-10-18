@@ -2,6 +2,9 @@ import { VIDEO_CONSTRAINTS } from "./scanner.js";
 
 const STORAGE_KEY = "my-loyalty-cards-v1";
 const THEME_KEY = "my-loyalty-cards-theme";
+const AUTO_KEY = "my-loyalty-cards-autolocate";
+
+const DEFAULT_RADIUS_M = 100;
 
 const CARD_TYPES = {
     EAN13: {
@@ -37,6 +40,10 @@ const CARD_TYPES = {
 let cards = loadCards();
 let editingId = null;
 let viewingId = null;
+
+let autoLocateEnabled = localStorage.getItem(AUTO_KEY) === "on";
+let nearbyId = null;
+let editingLocations = [];
 
 let scannerReader = null;
 let scannerStream = null;
@@ -81,6 +88,7 @@ const emptyState = document.getElementById("emptyState");
 const addCardButton = document.getElementById("addCardButton");
 const importExportButton = document.getElementById("importExportButton");
 const themeButton = document.getElementById("themeButton");
+const autoLocateButton = document.getElementById("autoLocateButton");
 
 const editBackButton = document.getElementById("editBackButton");
 const editTitle = document.getElementById("editTitle");
@@ -92,6 +100,10 @@ const cardType = document.getElementById("cardType");
 const cardColour = document.getElementById("cardColour");
 const scanButton = document.getElementById("scanButton");
 const deleteCardButton = document.getElementById("deleteCardButton");
+
+const locationList = document.getElementById("locationList");
+const addLocationButton = document.getElementById("addLocationButton");
+const locationStatus = document.getElementById("locationStatus");
 
 const transferBackButton = document.getElementById("transferBackButton");
 const copyAllButton = document.getElementById("copyAllButton");
@@ -136,7 +148,13 @@ function showList() {
     editingId = null;
 
     showScreen(cardListScreen);
-    renderCards();
+
+    if (autoLocateEnabled) {
+        refreshNearby().finally(renderCards);
+    } else {
+        nearbyId = null;
+        renderCards();
+    }
 }
 
 function openAddCard() {
@@ -149,6 +167,10 @@ function openAddCard() {
     cardCode.value = "";
     cardType.value = "EAN13";
     cardColour.value = "#2d7d46";
+
+    editingLocations = [];
+    renderLocationList();
+    locationStatus.classList.add("hidden");
 
     showScreen(editScreen);
     cardName.focus();
@@ -170,6 +192,12 @@ function openEditCard(id) {
     cardCode.value = card.code;
     cardType.value = card.type;
     cardColour.value = card.colour || "#2d7d46";
+
+    editingLocations = Array.isArray(card.locations)
+        ? card.locations.map(location => ({ ...location }))
+        : [];
+    renderLocationList();
+    locationStatus.classList.add("hidden");
 
     showScreen(editScreen);
 }
@@ -210,9 +238,20 @@ function renderCards() {
 
     emptyState.classList.toggle("hidden", cards.length !== 0);
 
-    for (const card of cards) {
+    const ordered = nearbyId
+        ? [
+              cards.find(c => c.id === nearbyId),
+              ...cards.filter(c => c.id !== nearbyId)
+          ].filter(Boolean)
+        : cards;
+
+    for (const card of ordered) {
         const row = document.createElement("div");
         row.className = "card-row";
+
+        if (card.id === nearbyId) {
+            row.classList.add("nearby");
+        }
 
         const colour = document.createElement("div");
         colour.className = "card-colour";
@@ -229,6 +268,10 @@ function renderCards() {
         const type = document.createElement("div");
         type.className = "card-type";
         type.textContent = CARD_TYPES[card.type]?.label || card.type;
+
+        if (card.id === nearbyId) {
+            type.textContent += " · 📍 near you";
+        }
 
         info.append(name, type);
 
@@ -286,15 +329,27 @@ cardForm.addEventListener("submit", event => {
             card.code = code;
             card.type = type;
             card.colour = colour;
+
+            if (editingLocations.length) {
+                card.locations = editingLocations.map(location => ({ ...location }));
+            } else {
+                delete card.locations;
+            }
         }
     } else {
-        cards.push({
+        const card = {
             id: crypto.randomUUID(),
             name,
             code,
             type,
             colour
-        });
+        };
+
+        if (editingLocations.length) {
+            card.locations = editingLocations.map(location => ({ ...location }));
+        }
+
+        cards.push(card);
     }
 
     saveCards();
@@ -350,6 +405,231 @@ viewerEditButton.addEventListener("click", () => {
 });
 
 /* ------------------------------------------------------------------
+   Location detection
+------------------------------------------------------------------ */
+
+function getPosition() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error("Location isn't available in this browser."));
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            position => resolve(position.coords),
+            error => reject(new Error(geolocationErrorMessage(error))),
+            {
+                enableHighAccuracy: false,
+                timeout: 10000,
+                maximumAge: 30000
+            }
+        );
+    });
+}
+
+function geolocationErrorMessage(error) {
+    switch (error.code) {
+        case 1:
+            return "Location permission was denied.";
+        case 2:
+            return "Couldn't determine your location.";
+        case 3:
+            return "Location request timed out.";
+        default:
+            return "Couldn't determine your location.";
+    }
+}
+
+function distanceMetres(lat1, lon1, lat2, lon2) {
+    const toRadians = degrees => degrees * Math.PI / 180;
+
+    const earthRadius = 6371000;
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRadians(lat1)) *
+            Math.cos(toRadians(lat2)) *
+            Math.sin(dLon / 2) ** 2;
+
+    return 2 * earthRadius * Math.asin(Math.sqrt(a));
+}
+
+function findNearbyCard(coords) {
+    let best = null;
+
+    for (const card of cards) {
+        if (!Array.isArray(card.locations)) {
+            continue;
+        }
+
+        for (const location of card.locations) {
+            const distance = distanceMetres(
+                coords.latitude,
+                coords.longitude,
+                location.lat,
+                location.lon
+            );
+
+            const radius = location.radius || DEFAULT_RADIUS_M;
+
+            if (distance <= radius && (!best || distance < best.distance)) {
+                best = { card, location, distance };
+            }
+        }
+    }
+
+    return best;
+}
+
+async function refreshNearby() {
+    nearbyId = null;
+
+    const anyLocations = cards.some(
+        card => Array.isArray(card.locations) && card.locations.length
+    );
+
+    if (!autoLocateEnabled || !anyLocations) {
+        return;
+    }
+
+    try {
+        const coords = await getPosition();
+        const match = findNearbyCard(coords);
+
+        nearbyId = match ? match.card.id : null;
+    } catch {
+        // Leave the list unsorted; auto-detect stays silent.
+    }
+}
+
+function renderLocationList() {
+    locationList.innerHTML = "";
+
+    for (let index = 0; index < editingLocations.length; index++) {
+        const location = editingLocations[index];
+
+        const row = document.createElement("div");
+        row.className = "location-row";
+
+        const top = document.createElement("div");
+        top.className = "location-top";
+
+        const coords = document.createElement("div");
+        coords.className = "location-coords";
+        coords.textContent =
+            `${location.lat.toFixed(5)}, ${location.lon.toFixed(5)}`;
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "location-remove";
+        remove.textContent = "×";
+        remove.title = "Remove location";
+
+        remove.addEventListener("click", () => {
+            editingLocations.splice(index, 1);
+            renderLocationList();
+        });
+
+        top.append(coords, remove);
+
+        const fields = document.createElement("div");
+        fields.className = "location-fields";
+
+        const label = document.createElement("input");
+        label.type = "text";
+        label.className = "location-label";
+        label.placeholder = "Label (optional)";
+        label.value = location.label || "";
+
+        label.addEventListener("input", () => {
+            location.label = label.value.trim();
+        });
+
+        const radius = document.createElement("input");
+        radius.type = "number";
+        radius.className = "location-radius";
+        radius.min = "10";
+        radius.max = "10000";
+        radius.step = "10";
+        radius.title = "Radius in metres";
+        radius.value = String(location.radius || DEFAULT_RADIUS_M);
+
+        radius.addEventListener("input", () => {
+            const value = Number(radius.value);
+
+            if (Number.isFinite(value) && value >= 10 && value <= 10000) {
+                location.radius = Math.round(value);
+            }
+        });
+
+        const radiusUnit = document.createElement("span");
+        radiusUnit.className = "location-radius-unit";
+        radiusUnit.textContent = "m";
+
+        fields.append(label, radius, radiusUnit);
+
+        row.append(top, fields);
+        locationList.appendChild(row);
+    }
+}
+
+addLocationButton.addEventListener("click", async () => {
+    locationStatus.classList.add("hidden");
+    addLocationButton.disabled = true;
+
+    try {
+        const coords = await getPosition();
+
+        editingLocations.push({
+            lat: Math.round(coords.latitude * 1e6) / 1e6,
+            lon: Math.round(coords.longitude * 1e6) / 1e6,
+            radius: DEFAULT_RADIUS_M
+        });
+
+        renderLocationList();
+
+        locationStatus.textContent =
+            "Location added. Set a label and radius if you like.";
+        locationStatus.classList.remove("hidden");
+    } catch (error) {
+        locationStatus.textContent = error.message;
+        locationStatus.classList.remove("hidden");
+    } finally {
+        addLocationButton.disabled = false;
+    }
+});
+
+autoLocateButton.addEventListener("click", async () => {
+    if (!autoLocateEnabled) {
+        autoLocateButton.disabled = true;
+
+        try {
+            await getPosition();
+        } catch (error) {
+            alert(error.message);
+            autoLocateButton.disabled = false;
+            return;
+        }
+
+        autoLocateButton.disabled = false;
+        autoLocateEnabled = true;
+        localStorage.setItem(AUTO_KEY, "on");
+        autoLocateButton.classList.add("active");
+
+        showList();
+    } else {
+        autoLocateEnabled = false;
+        localStorage.setItem(AUTO_KEY, "off");
+        autoLocateButton.classList.remove("active");
+
+        nearbyId = null;
+        renderCards();
+    }
+});
+
+/* ------------------------------------------------------------------
    Barcode rendering
 ------------------------------------------------------------------ */
 
@@ -394,7 +674,7 @@ function renderCode(card) {
 ------------------------------------------------------------------ */
 
 function cardDefinition(card) {
-    return {
+    const definition = {
         type: "loyalty-card",
         version: 1,
         card: {
@@ -404,18 +684,36 @@ function cardDefinition(card) {
             colour: card.colour || "#2d7d46"
         }
     };
+
+    if (Array.isArray(card.locations) && card.locations.length) {
+        definition.card.locations = card.locations.map(location => ({
+            ...location
+        }));
+    }
+
+    return definition;
 }
 
 function collectionDefinition() {
     return {
         type: "loyalty-cards",
         version: 1,
-        cards: cards.map(card => ({
-            name: card.name,
-            code: card.code,
-            type: card.type,
-            colour: card.colour || "#2d7d46"
-        }))
+        cards: cards.map(card => {
+            const definition = {
+                name: card.name,
+                code: card.code,
+                type: card.type,
+                colour: card.colour || "#2d7d46"
+            };
+
+            if (Array.isArray(card.locations) && card.locations.length) {
+                definition.locations = card.locations.map(location => ({
+                    ...location
+                }));
+            }
+
+            return definition;
+        })
     };
 }
 
@@ -430,6 +728,56 @@ function collectionText() {
 /* ------------------------------------------------------------------
    Import validation
 ------------------------------------------------------------------ */
+
+function validateLocations(name, locations) {
+    if (locations === undefined || locations === null) {
+        return undefined;
+    }
+
+    if (!Array.isArray(locations)) {
+        throw new Error(`"${name}" has an invalid locations list.`);
+    }
+
+    const cleaned = [];
+
+    for (const location of locations) {
+        if (!location || typeof location !== "object") {
+            throw new Error(`"${name}" has an invalid location entry.`);
+        }
+
+        const lat = Number(location.lat);
+        const lon = Number(location.lon);
+
+        if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+            throw new Error(`"${name}" has a location with an invalid latitude.`);
+        }
+
+        if (!Number.isFinite(lon) || lon < -180 || lon > 180) {
+            throw new Error(`"${name}" has a location with an invalid longitude.`);
+        }
+
+        const radius = location.radius === undefined
+            ? DEFAULT_RADIUS_M
+            : Number(location.radius);
+
+        if (!Number.isFinite(radius) || radius < 10 || radius > 10000) {
+            throw new Error(`"${name}" has a location with an invalid radius.`);
+        }
+
+        const label = typeof location.label === "string"
+            ? location.label.trim()
+            : "";
+
+        cleaned.push({
+            lat,
+            lon,
+            radius: Math.round(radius),
+            ...(label ? { label } : {})
+        });
+    }
+
+    return cleaned.length ? cleaned : undefined;
+}
 
 function validateCardDefinition(card) {
     if (!card || typeof card !== "object") {
@@ -452,7 +800,9 @@ function validateCardDefinition(card) {
         throw new Error(`"${name}" has an unsupported barcode type.`);
     }
 
-    return {
+    const locations = validateLocations(name, card.locations);
+
+    const cleaned = {
         name,
         code,
         type,
@@ -461,6 +811,12 @@ function validateCardDefinition(card) {
                 ? card.colour
                 : "#2d7d46"
     };
+
+    if (locations) {
+        cleaned.locations = locations;
+    }
+
+    return cleaned;
 }
 
 function parseImport(text) {
@@ -844,4 +1200,11 @@ viewerBackButton.addEventListener("click", showList);
 ------------------------------------------------------------------ */
 
 loadTheme();
+autoLocateButton.classList.toggle("active", autoLocateEnabled);
 renderCards();
+
+refreshNearby().then(() => {
+    if (nearbyId) {
+        renderCards();
+    }
+});

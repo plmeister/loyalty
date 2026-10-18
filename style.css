@@ -109,6 +109,133 @@ button {
     background: var(--surface-2);
 }
 
+.icon-button.active {
+    background: var(--surface-2);
+    color: var(--accent);
+}
+
+/* Card list near-you state */
+
+.card-row.nearby {
+    border-color: var(--accent);
+}
+
+/* Shop locations */
+
+.locations-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.locations-heading h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+}
+
+.locations-heading p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 400;
+}
+
+.location-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.location-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface-2);
+}
+
+.location-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.location-coords {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.location-remove {
+    border: 0;
+    background: transparent;
+    color: var(--danger);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.location-remove:hover {
+    background: var(--surface);
+}
+
+.location-fields {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.location-label {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 10px;
+    outline: none;
+}
+
+.location-label:focus {
+    border-color: var(--accent);
+}
+
+.location-radius {
+    width: 72px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 8px;
+    outline: none;
+}
+
+.location-radius:focus {
+    border-color: var(--accent);
+}
+
+.location-radius-unit {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.location-status {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
 /* Cards */
 
 .card-list {
