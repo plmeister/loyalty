@@ -582,6 +582,8 @@ input[type="color"] {
     display: flex;
     flex-direction: column;
 
+    touch-action: none;
+
     padding:
         env(safe-area-inset-top)
         12px

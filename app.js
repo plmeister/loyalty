@@ -435,8 +435,14 @@ viewerEditButton.addEventListener("click", () => {
 let swipeStart = null;
 
 viewerScreen.addEventListener("pointerdown", event => {
-    if (event.target.closest("button")) {
+    if (!event.isPrimary || event.target.closest("button")) {
         return;
+    }
+
+    try {
+        viewerScreen.setPointerCapture(event.pointerId);
+    } catch {
+        // Capture is a nicety; the swipe still works without it.
     }
 
     swipeStart = {
@@ -446,7 +452,7 @@ viewerScreen.addEventListener("pointerdown", event => {
 });
 
 viewerScreen.addEventListener("pointerup", event => {
-    if (!swipeStart) {
+    if (!swipeStart || !event.isPrimary) {
         return;
     }
 
@@ -455,9 +461,7 @@ viewerScreen.addEventListener("pointerup", event => {
 
     swipeStart = null;
 
-    const horizontal = Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.5;
-
-    if (!horizontal) {
+    if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) {
         return;
     }
 
