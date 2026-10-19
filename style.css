@@ -253,6 +253,10 @@ button {
     border-radius: 12px;
     background: var(--surface);
     min-height: 72px;
+
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .card-colour {
