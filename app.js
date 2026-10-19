@@ -1221,7 +1221,7 @@ function parseImport(text) {
     throw new Error("This isn't a Loyalty Cards definition.");
 }
 
-/* Import merging and its summary live with the transfer handlers. */
+/* Card matching and import live with the transfer handlers. */
 
 /* ------------------------------------------------------------------
    Clipboard / sharing
