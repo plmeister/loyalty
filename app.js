@@ -912,11 +912,18 @@ function sizeCode(is2D) {
 
     if (vertical) {
         /*
-         * The container's padding is 10px each side in CSS.
-         * Rotation means the canvas fits against both axes swapped.
+         * Read the live padding rather than hardcoding it, so the
+         * quiet zone can be adjusted in CSS without retuning this.
          */
-        const availableWidth = viewerCodeContainer.clientWidth - 20;
-        const availableHeight = viewerCodeContainer.clientHeight - 20;
+        const style = window.getComputedStyle(viewerCodeContainer);
+
+        const paddingX =
+            parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+        const paddingY =
+            parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+
+        const availableWidth = viewerCodeContainer.clientWidth - paddingX;
+        const availableHeight = viewerCodeContainer.clientHeight - paddingY;
 
         const scale = Math.min(
             availableWidth / viewerCode.height,
