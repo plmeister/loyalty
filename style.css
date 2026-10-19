@@ -120,6 +120,17 @@ button {
     border-color: var(--accent);
 }
 
+/*
+ * Press feedback for tap-and-hold. Driven by the pointerdown/
+ * pointerup handlers in app.js, not :active, because the hold needs
+ * a visible state that survives finger movement.
+ */
+.card-row.pressing {
+    background: var(--surface-2);
+    border-color: var(--accent);
+    transform: scale(0.985);
+}
+
 /* Shop locations */
 
 .locations-section {

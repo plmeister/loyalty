@@ -288,8 +288,11 @@ function renderCards() {
         /*
          * Tap & hold opens the card's action menu. The flag stops the
          * release that ends the hold from also opening the viewer.
+         * A brief haptic buzz and a press highlight confirm the hold
+         * as it starts, well before the menu appears.
          */
         let pressTimer = null;
+        let pressTick = null;
         let pressFired = false;
 
         const cancelPress = () => {
@@ -297,6 +300,13 @@ function renderCards() {
                 window.clearTimeout(pressTimer);
                 pressTimer = null;
             }
+
+            if (pressTick) {
+                window.clearTimeout(pressTick);
+                pressTick = null;
+            }
+
+            row.classList.remove("pressing");
         };
 
         row.addEventListener("pointerdown", event => {
@@ -305,10 +315,28 @@ function renderCards() {
             }
 
             pressFired = false;
+            row.classList.add("pressing");
+
+            /*
+             * Fire the confirmation as soon as we're confident this is
+             * a hold and not a tap, rather than at menu time.
+             */
+            pressTick = window.setTimeout(() => {
+                pressTick = null;
+
+                if (navigator.vibrate) {
+                    navigator.vibrate(15);
+                }
+            }, 150);
 
             pressTimer = window.setTimeout(() => {
                 pressTimer = null;
                 pressFired = true;
+
+                if (navigator.vibrate) {
+                    navigator.vibrate(30);
+                }
+
                 openActionMenu(card.id);
             }, 500);
         });
