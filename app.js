@@ -610,12 +610,39 @@ function resetCodeOffset() {
     viewerCodeContainer.style.opacity = "";
 }
 
+/*
+ * Track the gesture in screen coordinates. clientX can be reported
+ * relative to the captured element on some Android browsers, which
+ * flips the sign of a swipe partway through.
+ */
+function pointerPoint(event) {
+    return {
+        x: event.screenX,
+        y: event.screenY
+    };
+}
+
+function pointerDelta(event) {
+    if (!swipeStart) {
+        return null;
+    }
+
+    const point = pointerPoint(event);
+
+    return {
+        dx: point.x - swipeStart.x,
+        dy: point.y - swipeStart.y
+    };
+}
+
 function flipTo(step, dx) {
     flipBusy = true;
 
     /*
-     * Fly the current card off-screen, swap at the midpoint,
-     * then fly the new card in from the opposite edge.
+     * The card being swiped away and the card arriving should both
+     * travel the same way, like a strip of film — the outgoing card
+     * leaves in the swipe direction and the incoming card enters from
+     * the opposite edge behind it.
      */
     setCodeOffset(dx < 0 ? "-110%" : "110%", true);
     viewerCodeContainer.style.opacity = "0";
@@ -648,10 +675,7 @@ viewerScreen.addEventListener("pointerdown", event => {
 
     resetCodeOffset();
 
-    swipeStart = {
-        x: event.clientX,
-        y: event.clientY
-    };
+    swipeStart = pointerPoint(event);
 });
 
 viewerScreen.addEventListener("pointermove", event => {
@@ -659,7 +683,7 @@ viewerScreen.addEventListener("pointermove", event => {
         return;
     }
 
-    const dx = event.clientX - swipeStart.x;
+    const { dx } = pointerDelta(event);
 
     viewerCodeContainer.style.transition = "none";
     viewerCodeContainer.style.transform = `translateX(${dx}px)`;
@@ -672,8 +696,7 @@ viewerScreen.addEventListener("pointerup", event => {
         return;
     }
 
-    const dx = event.clientX - swipeStart.x;
-    const dy = event.clientY - swipeStart.y;
+    const { dx, dy } = pointerDelta(event);
 
     swipeStart = null;
 
