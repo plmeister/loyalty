@@ -481,6 +481,13 @@ function openActionMenu(id) {
 function closeActionMenu() {
     actionMenu.classList.add("hidden");
     actionMenuCardId = null;
+
+    resetDeleteConfirm();
+}
+
+function resetDeleteConfirm() {
+    actionMenuDelete.classList.remove("confirming");
+    actionMenuDelete.textContent = "Delete";
 }
 
 actionMenuEdit.addEventListener("click", () => {
@@ -532,6 +539,12 @@ actionMenuLocate.addEventListener("click", async () => {
 });
 
 actionMenuDelete.addEventListener("click", () => {
+    if (!actionMenuDelete.classList.contains("confirming")) {
+        actionMenuDelete.classList.add("confirming");
+        actionMenuDelete.textContent = "Tap again to delete";
+        return;
+    }
+
     const id = actionMenuCardId;
 
     closeActionMenu();

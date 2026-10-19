@@ -752,6 +752,12 @@ input[type="color"] {
     margin-top: 6px;
 }
 
+.action-menu-item.danger.confirming {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+
 /* Desktop */
 
 @media (min-width: 700px) {
