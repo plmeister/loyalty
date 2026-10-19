@@ -1221,7 +1221,7 @@ function parseImport(text) {
     throw new Error("This isn't a Loyalty Cards definition.");
 }
 
-/* Card matching and import live with the transfer handlers. */
+/* Import and its location merging live with the transfer handlers. */
 
 /* ------------------------------------------------------------------
    Clipboard / sharing
@@ -1338,23 +1338,45 @@ importButton.addEventListener("click", () => {
     try {
         const imported = parseImport(text);
 
-        /*
-         * Cards are matched on type and number. Anything already held
-         * is skipped outright — including its locations, which are
-         * tied to where you personally shop rather than to the card.
-         */
-        const newCards = imported.filter(card => !isDuplicate(card));
+        let merged = 0;
+        let skipped = 0;
 
-        for (const card of newCards) {
-            cards.push({
-                id: crypto.randomUUID(),
-                ...card
-            });
+        for (const card of imported) {
+            const existing = cards.find(current =>
+                current.type === card.type &&
+                current.code === card.code
+            );
+
+            if (!existing) {
+                cards.push({
+                    id: crypto.randomUUID(),
+                    ...card
+                });
+
+                continue;
+            }
+
+            /*
+             * The card itself is already held, so only the shop
+             * locations are merged in. Each card's location list is
+             * shared, so duplicate coordinates are skipped.
+             */
+            if (mergeLocations(existing, card.locations)) {
+                merged++;
+            } else {
+                skipped++;
+            }
         }
 
         saveCards();
 
-        showTransferStatus(importSummary(imported.length, newCards.length));
+        showTransferStatus(
+            importSummary({
+                imported: imported.length,
+                merged,
+                skipped
+            })
+        );
 
         renderCards();
     } catch (error) {
@@ -1362,20 +1384,52 @@ importButton.addEventListener("click", () => {
     }
 });
 
-function importSummary(imported, added) {
+function mergeLocations(card, incoming) {
+    if (!incoming?.length) {
+        return false;
+    }
+
+    let changed = false;
+    const locations = card.locations ? [...card.locations] : [];
+
+    for (const location of incoming) {
+        const exists = locations.some(current =>
+            Math.abs(current.lat - location.lat) < 1e-6 &&
+            Math.abs(current.lon - location.lon) < 1e-6
+        );
+
+        if (exists) {
+            continue;
+        }
+
+        locations.push({ ...location });
+        changed = true;
+    }
+
+    if (changed) {
+        card.locations = locations;
+    }
+
+    return changed;
+}
+
+function importSummary({ imported, merged, skipped }) {
     const label = count => `${count} card${count === 1 ? "" : "s"}`;
+    const parts = [];
 
-    if (added === 0) {
-        return `${label(imported)} found — all already exist.`;
+    if (merged) {
+        parts.push(`merged locations into ${label(merged)}`);
     }
 
-    if (added < imported) {
-        const skipped = imported - added;
-
-        return `Imported ${label(added)}; ${skipped} already existed.`;
+    if (skipped) {
+        parts.push(`${label(skipped)} already up to date`);
     }
 
-    return `Imported ${label(added)}.`;
+    if (!parts.length) {
+        return `Imported ${label(imported)}.`;
+    }
+
+    return `${parts.join("; ")} (${label(imported)} in this import).`;
 }
 
 function showTransferStatus(message) {
