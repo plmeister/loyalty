@@ -595,6 +595,10 @@ const FLIP_MS = 160;
 let swipeStart = null;
 let flipBusy = false;
 
+let slideOutPending = null;
+let slideOutPendingDetails = null;
+let slideOutTimer = null;
+
 function setCodeOffset(offset, animate) {
     viewerCodeContainer.style.transition = animate
         ? `transform ${FLIP_MS}ms ease, opacity ${FLIP_MS}ms ease`
@@ -608,6 +612,44 @@ function resetCodeOffset() {
     viewerCodeContainer.style.transition = "none";
     viewerCodeContainer.style.transform = "";
     viewerCodeContainer.style.opacity = "";
+}
+
+viewerCodeContainer.addEventListener("transitionend", event => {
+    if (event.propertyName === "transform") {
+        onSlideOut();
+    }
+});
+
+/*
+ * Called once the outgoing card has finished sliding away, by either
+ * transitionend or a fallback timer. The guard means the two can
+ * race harmlessly.
+ */
+function onSlideOut() {
+    if (!slideOutPending) {
+        return;
+    }
+
+    const { step, direction } = slideOutPendingDetails;
+
+    slideOutPending = null;
+    slideOutPendingDetails = null;
+
+    window.clearTimeout(slideOutTimer);
+    slideOutTimer = null;
+
+    openAdjacentCard(step);
+
+    setCodeOffset(direction * -110 + "%", false);
+    viewerCodeContainer.style.opacity = "0";
+
+    window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+            setCodeOffset("0%", true);
+            viewerCodeContainer.style.opacity = "1";
+            flipBusy = false;
+        });
+    });
 }
 
 /*
@@ -639,27 +681,23 @@ function flipTo(step, dx) {
     flipBusy = true;
 
     /*
-     * The card being swiped away and the card arriving should both
-     * travel the same way, like a strip of film — the outgoing card
-     * leaves in the swipe direction and the incoming card enters from
-     * the opposite edge behind it.
+     * Travel direction is taken from the sign of the gesture, and the
+     * incoming card enters from the opposite edge, so both cards move
+     * the same way — like a strip of film.
      */
-    setCodeOffset(dx < 0 ? "-110%" : "110%", true);
+    const direction = dx < 0 ? -1 : 1;
+
+    slideOutPending = true;
+    slideOutPendingDetails = { step, direction };
+
+    setCodeOffset(direction * 110 + "%", true);
     viewerCodeContainer.style.opacity = "0";
 
-    window.setTimeout(() => {
-        openAdjacentCard(step);
-
-        setCodeOffset(dx < 0 ? "110%" : "-110%", false);
-        viewerCodeContainer.style.opacity = "0";
-
-        window.requestAnimationFrame(() => {
-            setCodeOffset("", true);
-            viewerCodeContainer.style.opacity = "1";
-        });
-
-        flipBusy = false;
-    }, FLIP_MS);
+    /*
+     * Firefox doesn't always fire transitionend on transforms, so the
+     * handover also runs on a timer slightly longer than the animation.
+     */
+    slideOutTimer = window.setTimeout(onSlideOut, FLIP_MS + 80);
 }
 
 viewerScreen.addEventListener("pointerdown", event => {
