@@ -1221,12 +1221,7 @@ function parseImport(text) {
     throw new Error("This isn't a Loyalty Cards definition.");
 }
 
-function isDuplicate(card) {
-    return cards.some(existing =>
-        existing.type === card.type &&
-        existing.code === card.code
-    );
-}
+/* Import merging and its summary live with the transfer handlers. */
 
 /* ------------------------------------------------------------------
    Clipboard / sharing
@@ -1343,37 +1338,98 @@ importButton.addEventListener("click", () => {
     try {
         const imported = parseImport(text);
 
-        const newCards = imported.filter(card => !isDuplicate(card));
-        const duplicates = imported.length - newCards.length;
+        let merged = 0;
+        let duplicates = 0;
+        let added = 0;
 
-        for (const card of newCards) {
-            cards.push({
-                id: crypto.randomUUID(),
-                ...card
-            });
+        for (const card of imported) {
+            const existing = cards.find(current =>
+                current.type === card.type &&
+                current.code === card.code
+            );
+
+            if (!existing) {
+                cards.push({
+                    id: crypto.randomUUID(),
+                    ...card
+                });
+
+                added++;
+                continue;
+            }
+
+            duplicates++;
+
+            /*
+             * A card you already hold matches on type and number, but
+             * the incoming copy may carry shop locations. Merge those
+             * in rather than dropping them, otherwise an export taken
+             * from another device would lose its location data.
+             */
+            if (card.locations?.length && mergeLocations(existing, card.locations)) {
+                merged++;
+            }
         }
 
         saveCards();
 
-        if (newCards.length === 0) {
-            showTransferStatus(
-                `${imported.length} card${imported.length === 1 ? "" : "s"} found — all already exist.`
-            );
-        } else if (duplicates > 0) {
-            showTransferStatus(
-                `Imported ${newCards.length} new card${newCards.length === 1 ? "" : "s"}; skipped ${duplicates} duplicate${duplicates === 1 ? "" : "s"}.`
-            );
-        } else {
-            showTransferStatus(
-                `Imported ${newCards.length} card${newCards.length === 1 ? "" : "s"}.`
-            );
-        }
+        showTransferStatus(importSummary({
+            imported: imported.length,
+            added,
+            duplicates,
+            merged
+        }));
 
         renderCards();
     } catch (error) {
         showTransferStatus(error.message || "Import failed.");
     }
 });
+
+function mergeLocations(card, incoming) {
+    let added = false;
+
+    for (const location of incoming) {
+        const exists = (card.locations || []).some(current =>
+            Math.abs(current.lat - location.lat) < 1e-6 &&
+            Math.abs(current.lon - location.lon) < 1e-6
+        );
+
+        if (exists) {
+            continue;
+        }
+
+        card.locations = [...(card.locations || []), { ...location }];
+        added = true;
+    }
+
+    return added;
+}
+
+function importSummary({ imported, added, duplicates, merged }) {
+    const label = count => `${count} card${count === 1 ? "" : "s"}`;
+    const parts = [];
+
+    if (added) {
+        parts.push(`imported ${label(added)}`);
+    }
+
+    if (merged) {
+        parts.push(
+            `merged locations into ${label(merged)} you already had`
+        );
+    }
+
+    if (duplicates && !merged) {
+        parts.push(`${label(duplicates)} already existed`);
+    }
+
+    if (!parts.length) {
+        return `${label(imported)} found — all already exist.`;
+    }
+
+    return `${parts.join("; ")}.`;
+}
 
 function showTransferStatus(message) {
     transferStatus.textContent = message;
