@@ -125,8 +125,8 @@ const viewerCode = document.getElementById("viewerCode");
 const actionMenu = document.getElementById("actionMenu");
 const actionMenuTitle = document.getElementById("actionMenuTitle");
 const actionMenuEdit = document.getElementById("actionMenuEdit");
+const actionMenuLocate = document.getElementById("actionMenuLocate");
 const actionMenuDelete = document.getElementById("actionMenuDelete");
-const actionMenuCancel = document.getElementById("actionMenuCancel");
 const actionMenuBackdrop = document.getElementById("actionMenuBackdrop");
 
 /* ------------------------------------------------------------------
@@ -493,6 +493,44 @@ actionMenuEdit.addEventListener("click", () => {
     }
 });
 
+actionMenuLocate.addEventListener("click", async () => {
+    const id = actionMenuCardId;
+
+    closeActionMenu();
+
+    if (!id) {
+        return;
+    }
+
+    const card = cards.find(c => c.id === id);
+
+    if (!card) {
+        return;
+    }
+
+    try {
+        const coords = await getPosition();
+
+        const location = {
+            lat: Math.round(coords.latitude * 1e6) / 1e6,
+            lon: Math.round(coords.longitude * 1e6) / 1e6,
+            radius: DEFAULT_RADIUS_M
+        };
+
+        card.locations = [...(card.locations || []), location];
+
+        saveCards();
+        renderCards();
+
+        alert(
+            `Saved this location to "${card.name}".\n\n` +
+            "Add a label or change the radius from Edit if you like."
+        );
+    } catch (error) {
+        alert(error.message);
+    }
+});
+
 actionMenuDelete.addEventListener("click", () => {
     const id = actionMenuCardId;
 
@@ -503,7 +541,6 @@ actionMenuDelete.addEventListener("click", () => {
     }
 });
 
-actionMenuCancel.addEventListener("click", closeActionMenu);
 actionMenuBackdrop.addEventListener("click", closeActionMenu);
 
 /* ------------------------------------------------------------------

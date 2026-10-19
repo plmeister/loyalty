@@ -749,10 +749,7 @@ input[type="color"] {
     color: var(--danger);
     border-color: var(--danger);
     background: transparent;
-}
-
-.action-menu-item.cancel {
-    background: transparent;
+    margin-top: 6px;
 }
 
 /* Desktop */
