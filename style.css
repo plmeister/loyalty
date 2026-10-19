@@ -675,6 +675,16 @@ input[type="color"] {
     max-height: 100%;
 }
 
+/*
+ * Rotated 1D codes are sized explicitly by JS against the
+ * container, so the usual fit rules must not clamp them.
+ */
+#viewerCode.rotated {
+    max-width: none;
+    max-height: none;
+    transform: rotate(90deg);
+}
+
 /* Card context menu (tap & hold) */
 
 .action-menu {

@@ -233,8 +233,8 @@ function openViewer(id) {
         return;
     }
 
-    displayCard(card);
     showScreen(viewerScreen);
+    displayCard(card);
     requestWakeLock();
 }
 
@@ -892,8 +892,42 @@ function renderCode(card) {
 
     try {
         window.bwipjs.toCanvas(viewerCode, options);
+        sizeCode(is2D);
     } catch (error) {
         console.error("Barcode rendering failed:", error);
+    }
+}
+
+/*
+ * Tall screens suit vertical 1D barcodes far better than the usual
+ * wide-and-short layout. Rotate the canvas when the viewer is in
+ * portrait and fit it against the container's height instead.
+ */
+function sizeCode(is2D) {
+    const bounds = viewerCodeContainer.getBoundingClientRect();
+
+    const vertical = !is2D && bounds.height > bounds.width;
+
+    viewerCode.classList.toggle("rotated", vertical);
+
+    if (vertical) {
+        /*
+         * The container's padding is 10px each side in CSS.
+         * Rotation means the canvas fits against both axes swapped.
+         */
+        const availableWidth = viewerCodeContainer.clientWidth - 20;
+        const availableHeight = viewerCodeContainer.clientHeight - 20;
+
+        const scale = Math.min(
+            availableWidth / viewerCode.height,
+            availableHeight / viewerCode.width
+        );
+
+        viewerCode.style.width = `${Math.round(viewerCode.width * scale)}px`;
+        viewerCode.style.height = `${Math.round(viewerCode.height * scale)}px`;
+    } else {
+        viewerCode.style.width = "";
+        viewerCode.style.height = "";
     }
 }
 
