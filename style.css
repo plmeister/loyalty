@@ -589,6 +589,24 @@ input[type="color"] {
     max-width: 600px;
 }
 
+/*
+ * Offers a way past the camera while adding a card, so a missing or
+ * denied camera doesn't block entry entirely.
+ */
+.scanner-skip {
+    flex: 0 0 auto;
+
+    align-self: center;
+    margin: 0 auto 8px;
+
+    min-width: 220px;
+    max-width: 100%;
+
+    background: rgb(255 255 255 / 12%);
+    color: #fff;
+    border-color: rgb(255 255 255 / 45%);
+}
+
 /* Fullscreen viewer */
 
 .viewer {

@@ -196,7 +196,7 @@
     <section id="scannerScreen" class="screen scanner-screen hidden">
         <header class="screen-header scanner-header">
             <button id="scannerBackButton" class="back-button">‹</button>
-            <h2>Scan barcode</h2>
+            <h2 id="scannerTitle">Scan barcode</h2>
         </header>
 
         <div class="scanner-container">
@@ -207,6 +207,11 @@
         <p id="scannerStatus" class="scanner-status">
             Centre the barcode and fill as much of the frame as practical.
         </p>
+
+        <button id="scannerSkipButton"
+                class="secondary-button scanner-skip hidden">
+            Enter details manually
+        </button>
     </section>
 
     <section id="viewerScreen" class="viewer hidden">

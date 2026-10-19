@@ -114,8 +114,10 @@ const importText = document.getElementById("importText");
 const transferStatus = document.getElementById("transferStatus");
 
 const scannerBackButton = document.getElementById("scannerBackButton");
+const scannerTitle = document.getElementById("scannerTitle");
 const scannerVideo = document.getElementById("scannerVideo");
 const scannerStatus = document.getElementById("scannerStatus");
+const scannerSkipButton = document.getElementById("scannerSkipButton");
 
 const viewerBackButton = document.getElementById("viewerBackButton");
 const viewerShareButton = document.getElementById("viewerShareButton");
@@ -177,8 +179,17 @@ function openAddCard() {
     renderLocationList();
     locationStatus.classList.add("hidden");
 
-    showScreen(editScreen);
-    cardName.focus();
+    /*
+     * Adding a card starts at the camera — scanning fills the number
+     * and type for you. The scan screen offers a way past it when the
+     * card isn't to hand or the camera can't be used.
+     */
+    scannerOrigin = "add";
+    startScanner();
+}
+
+function findCardByCode(code, type) {
+    return cards.find(card => card.code === code && card.type === type);
 }
 
 function openEditCard(id) {
@@ -1479,18 +1490,57 @@ function showTransferStatus(message) {
    Scanner
 ------------------------------------------------------------------ */
 
-scanButton.addEventListener("click", startScanner);
+/*
+ * Where the scanner was opened from: "add" for the new-card flow,
+ * "edit" when rescanning from the card form. Only the add flow shows
+ * the skip button and drops straight into the form afterwards.
+ */
+let scannerOrigin = "edit";
+
+scanButton.addEventListener("click", () => {
+    scannerOrigin = "edit";
+    startScanner();
+});
 
 scannerBackButton.addEventListener("click", () => {
     stopScanner();
+
+    if (scannerOrigin === "add") {
+        showList();
+        return;
+    }
+
     showScreen(editScreen);
+});
+
+scannerSkipButton.addEventListener("click", () => {
+    stopScanner();
+
+    scannerOrigin = "edit";
+    showScreen(editScreen);
+    cardName.focus();
 });
 
 async function startScanner() {
     if (!window.ZXing) {
-        scannerStatus.textContent = "Barcode scanner is unavailable.";
+        /*
+         * No scanner library: fall straight through to manual entry
+         * rather than stranding the user on a dead camera screen.
+         */
+        if (scannerOrigin === "add") {
+            scannerOrigin = "edit";
+            showScreen(editScreen);
+            cardName.focus();
+        } else {
+            scannerStatus.textContent = "Barcode scanner is unavailable.";
+        }
+
         return;
     }
+
+    scannerSkipButton.classList.toggle("hidden", scannerOrigin !== "add");
+    scannerTitle.textContent =
+        scannerOrigin === "add" ? "Scan your card" : "Scan barcode";
 
     showScreen(scannerScreen);
 
@@ -1530,21 +1580,59 @@ async function startScanner() {
                     return;
                 }
 
-                cardCode.value = result.getText();
-                cardType.value = type;
-
-                stopScanner();
-                showScreen(editScreen);
-
-                scannerStatus.textContent = "Barcode detected.";
+                handleScanned(result.getText(), type);
             }
         );
     } catch (error) {
         console.error(error);
 
+        /*
+         * Camera denied or unavailable. The add flow can still
+         * continue by hand; an edit-flow rescan just reports it.
+         */
+        if (scannerOrigin === "add") {
+            scannerSkipButton.classList.remove("hidden");
+        }
+
         scannerStatus.textContent =
             "Couldn't start the camera. Check camera permission.";
     }
+}
+
+function handleScanned(code, type) {
+    stopScanner();
+
+    if (scannerOrigin === "add") {
+        const existing = findCardByCode(code, type);
+
+        if (existing) {
+            scannerStatus.textContent = `"${existing.name}" is already saved.`;
+
+            const again = confirm(
+                `You already have "${existing.name}" with this number.\n\n` +
+                "Open it instead?"
+            );
+
+            scannerOrigin = "edit";
+
+            if (again) {
+                openViewer(existing.id);
+            } else {
+                showList();
+            }
+
+            return;
+        }
+    }
+
+    cardCode.value = code;
+    cardType.value = type;
+
+    scannerOrigin = "edit";
+    showScreen(editScreen);
+
+    /* The number and type are filled in, so move on to the name. */
+    cardName.focus();
 }
 
 function typeForZXingFormat(format) {
