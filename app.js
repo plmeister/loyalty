@@ -1338,47 +1338,23 @@ importButton.addEventListener("click", () => {
     try {
         const imported = parseImport(text);
 
-        let merged = 0;
-        let duplicates = 0;
-        let added = 0;
+        /*
+         * Cards are matched on type and number. Anything already held
+         * is skipped outright — including its locations, which are
+         * tied to where you personally shop rather than to the card.
+         */
+        const newCards = imported.filter(card => !isDuplicate(card));
 
-        for (const card of imported) {
-            const existing = cards.find(current =>
-                current.type === card.type &&
-                current.code === card.code
-            );
-
-            if (!existing) {
-                cards.push({
-                    id: crypto.randomUUID(),
-                    ...card
-                });
-
-                added++;
-                continue;
-            }
-
-            duplicates++;
-
-            /*
-             * A card you already hold matches on type and number, but
-             * the incoming copy may carry shop locations. Merge those
-             * in rather than dropping them, otherwise an export taken
-             * from another device would lose its location data.
-             */
-            if (card.locations?.length && mergeLocations(existing, card.locations)) {
-                merged++;
-            }
+        for (const card of newCards) {
+            cards.push({
+                id: crypto.randomUUID(),
+                ...card
+            });
         }
 
         saveCards();
 
-        showTransferStatus(importSummary({
-            imported: imported.length,
-            added,
-            duplicates,
-            merged
-        }));
+        showTransferStatus(importSummary(imported.length, newCards.length));
 
         renderCards();
     } catch (error) {
@@ -1386,49 +1362,20 @@ importButton.addEventListener("click", () => {
     }
 });
 
-function mergeLocations(card, incoming) {
-    let added = false;
-
-    for (const location of incoming) {
-        const exists = (card.locations || []).some(current =>
-            Math.abs(current.lat - location.lat) < 1e-6 &&
-            Math.abs(current.lon - location.lon) < 1e-6
-        );
-
-        if (exists) {
-            continue;
-        }
-
-        card.locations = [...(card.locations || []), { ...location }];
-        added = true;
-    }
-
-    return added;
-}
-
-function importSummary({ imported, added, duplicates, merged }) {
+function importSummary(imported, added) {
     const label = count => `${count} card${count === 1 ? "" : "s"}`;
-    const parts = [];
 
-    if (added) {
-        parts.push(`imported ${label(added)}`);
-    }
-
-    if (merged) {
-        parts.push(
-            `merged locations into ${label(merged)} you already had`
-        );
-    }
-
-    if (duplicates && !merged) {
-        parts.push(`${label(duplicates)} already existed`);
-    }
-
-    if (!parts.length) {
+    if (added === 0) {
         return `${label(imported)} found — all already exist.`;
     }
 
-    return `${parts.join("; ")}.`;
+    if (added < imported) {
+        const skipped = imported - added;
+
+        return `Imported ${label(added)}; ${skipped} already existed.`;
+    }
+
+    return `Imported ${label(added)}.`;
 }
 
 function showTransferStatus(message) {
