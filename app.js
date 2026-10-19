@@ -121,8 +121,13 @@ const viewerBackButton = document.getElementById("viewerBackButton");
 const viewerShareButton = document.getElementById("viewerShareButton");
 const viewerName = document.getElementById("viewerName");
 const viewerCode = document.getElementById("viewerCode");
-const viewerEditButton = document.getElementById("viewerEditButton");
-const viewerDeleteButton = document.getElementById("viewerDeleteButton");
+
+const actionMenu = document.getElementById("actionMenu");
+const actionMenuTitle = document.getElementById("actionMenuTitle");
+const actionMenuEdit = document.getElementById("actionMenuEdit");
+const actionMenuDelete = document.getElementById("actionMenuDelete");
+const actionMenuCancel = document.getElementById("actionMenuCancel");
+const actionMenuBackdrop = document.getElementById("actionMenuBackdrop");
 
 /* ------------------------------------------------------------------
    Screens
@@ -234,7 +239,7 @@ function openViewer(id) {
 }
 
 function openAdjacentCard(step) {
-    if (!viewingId) {
+    if (!viewingId || cards.length === 0) {
         return;
     }
 
@@ -244,11 +249,7 @@ function openAdjacentCard(step) {
         return;
     }
 
-    const card = cards[index + step];
-
-    if (!card) {
-        return;
-    }
+    const card = cards[(index + step + cards.length) % cards.length];
 
     displayCard(card);
 }
@@ -283,7 +284,48 @@ function renderCards() {
 
         const info = document.createElement("div");
         info.className = "card-info";
-        info.addEventListener("click", () => openViewer(card.id));
+
+        /*
+         * Tap & hold opens the card's action menu. The flag stops the
+         * release that ends the hold from also opening the viewer.
+         */
+        let pressTimer = null;
+        let pressFired = false;
+
+        const cancelPress = () => {
+            if (pressTimer) {
+                window.clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+        };
+
+        row.addEventListener("pointerdown", event => {
+            if (event.target.closest("button")) {
+                return;
+            }
+
+            pressFired = false;
+
+            pressTimer = window.setTimeout(() => {
+                pressTimer = null;
+                pressFired = true;
+                openActionMenu(card.id);
+            }, 500);
+        });
+
+        row.addEventListener("pointermove", cancelPress);
+        row.addEventListener("pointerup", cancelPress);
+        row.addEventListener("pointercancel", cancelPress);
+        row.addEventListener("pointerleave", cancelPress);
+
+        info.addEventListener("click", () => {
+            if (pressFired) {
+                pressFired = false;
+                return;
+            }
+
+            openViewer(card.id);
+        });
 
         const name = document.createElement("div");
         name.className = "card-name";
@@ -401,12 +443,8 @@ deleteCardButton.addEventListener("click", () => {
     showList();
 });
 
-viewerDeleteButton.addEventListener("click", () => {
-    if (!viewingId) {
-        return;
-    }
-
-    const card = cards.find(c => c.id === viewingId);
+function deleteCard(id) {
+    const card = cards.find(c => c.id === id);
 
     if (!card) {
         return;
@@ -416,26 +454,111 @@ viewerDeleteButton.addEventListener("click", () => {
         return;
     }
 
-    cards = cards.filter(c => c.id !== viewingId);
+    cards = cards.filter(c => c.id !== id);
 
     saveCards();
     showList();
-});
+}
 
-viewerEditButton.addEventListener("click", () => {
-    if (viewingId) {
-        openEditCard(viewingId);
+/* ------------------------------------------------------------------
+   Card context menu (tap & hold on the card list)
+------------------------------------------------------------------ */
+
+let actionMenuCardId = null;
+
+function openActionMenu(id) {
+    const card = cards.find(c => c.id === id);
+
+    if (!card) {
+        return;
+    }
+
+    actionMenuCardId = id;
+    actionMenuTitle.textContent = card.name;
+    actionMenu.classList.remove("hidden");
+}
+
+function closeActionMenu() {
+    actionMenu.classList.add("hidden");
+    actionMenuCardId = null;
+}
+
+actionMenuEdit.addEventListener("click", () => {
+    const id = actionMenuCardId;
+
+    closeActionMenu();
+
+    if (id) {
+        openEditCard(id);
     }
 });
+
+actionMenuDelete.addEventListener("click", () => {
+    const id = actionMenuCardId;
+
+    closeActionMenu();
+
+    if (id) {
+        deleteCard(id);
+    }
+});
+
+actionMenuCancel.addEventListener("click", closeActionMenu);
+actionMenuBackdrop.addEventListener("click", closeActionMenu);
 
 /* ------------------------------------------------------------------
    Viewer card flipping
 ------------------------------------------------------------------ */
 
+const viewerCodeContainer = document.getElementById("viewerCodeContainer");
+
+const FLIP_MS = 160;
+
 let swipeStart = null;
+let flipBusy = false;
+
+function setCodeOffset(offset, animate) {
+    viewerCodeContainer.style.transition = animate
+        ? `transform ${FLIP_MS}ms ease, opacity ${FLIP_MS}ms ease`
+        : "none";
+    viewerCodeContainer.style.transform = offset
+        ? `translateX(${offset})`
+        : "";
+}
+
+function resetCodeOffset() {
+    viewerCodeContainer.style.transition = "none";
+    viewerCodeContainer.style.transform = "";
+    viewerCodeContainer.style.opacity = "";
+}
+
+function flipTo(step, dx) {
+    flipBusy = true;
+
+    /*
+     * Fly the current card off-screen, swap at the midpoint,
+     * then fly the new card in from the opposite edge.
+     */
+    setCodeOffset(dx < 0 ? "-110%" : "110%", true);
+    viewerCodeContainer.style.opacity = "0";
+
+    window.setTimeout(() => {
+        openAdjacentCard(step);
+
+        setCodeOffset(dx < 0 ? "110%" : "-110%", false);
+        viewerCodeContainer.style.opacity = "0";
+
+        window.requestAnimationFrame(() => {
+            setCodeOffset("", true);
+            viewerCodeContainer.style.opacity = "1";
+        });
+
+        flipBusy = false;
+    }, FLIP_MS);
+}
 
 viewerScreen.addEventListener("pointerdown", event => {
-    if (!event.isPrimary || event.target.closest("button")) {
+    if (!event.isPrimary || flipBusy || event.target.closest("button")) {
         return;
     }
 
@@ -445,10 +568,25 @@ viewerScreen.addEventListener("pointerdown", event => {
         // Capture is a nicety; the swipe still works without it.
     }
 
+    resetCodeOffset();
+
     swipeStart = {
         x: event.clientX,
         y: event.clientY
     };
+});
+
+viewerScreen.addEventListener("pointermove", event => {
+    if (!swipeStart || !event.isPrimary) {
+        return;
+    }
+
+    const dx = event.clientX - swipeStart.x;
+
+    viewerCodeContainer.style.transition = "none";
+    viewerCodeContainer.style.transform = `translateX(${dx}px)`;
+    viewerCodeContainer.style.opacity =
+        String(1 - Math.min(Math.abs(dx) / 300, 0.5));
 });
 
 viewerScreen.addEventListener("pointerup", event => {
@@ -462,14 +600,22 @@ viewerScreen.addEventListener("pointerup", event => {
     swipeStart = null;
 
     if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) {
+        resetCodeOffset();
+        viewerCodeContainer.style.transition =
+            `transform ${FLIP_MS}ms ease, opacity ${FLIP_MS}ms ease`;
+        viewerCodeContainer.style.opacity = "1";
         return;
     }
 
-    openAdjacentCard(dx < 0 ? 1 : -1);
+    flipTo(dx < 0 ? 1 : -1, dx);
 });
 
 viewerScreen.addEventListener("pointercancel", () => {
     swipeStart = null;
+
+    if (!flipBusy) {
+        resetCodeOffset();
+    }
 });
 
 document.addEventListener("keydown", event => {
@@ -727,7 +873,7 @@ function renderCode(card) {
     const options = {
         bcid: type.bwip,
         text: card.code,
-        scale: is2D ? 5 : 4,
+        scale: is2D ? 8 : 6,
         includetext: false,
 
         /*

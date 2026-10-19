@@ -222,17 +222,27 @@
         <div id="viewerCodeContainer" class="viewer-code-container">
             <canvas id="viewerCode"></canvas>
         </div>
+    </section>
 
-        <div class="viewer-bottom">
-            <button id="viewerEditButton" class="viewer-action">
+    <div id="actionMenu" class="action-menu hidden">
+        <div id="actionMenuBackdrop" class="action-menu-backdrop"></div>
+
+        <div class="action-menu-sheet">
+            <div id="actionMenuTitle" class="action-menu-title"></div>
+
+            <button id="actionMenuEdit" class="action-menu-item">
                 Edit
             </button>
 
-            <button id="viewerDeleteButton" class="viewer-action danger">
+            <button id="actionMenuDelete" class="action-menu-item danger">
                 Delete
             </button>
+
+            <button id="actionMenuCancel" class="action-menu-item cancel">
+                Cancel
+            </button>
         </div>
-    </section>
+    </div>
 
 </div>
 
