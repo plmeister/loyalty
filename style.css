@@ -609,6 +609,12 @@ input[type="color"] {
 
 /* Fullscreen viewer */
 
+/*
+ * Full-screen card view. Drag gestures are handled in app.js: a
+ * horizontal drag flips between cards, a downward drag dismisses back
+ * to the list. touch-action is off so the browser leaves both alone
+ * rather than treating them as scroll.
+ */
 .viewer {
     position: fixed;
     inset: 0;
@@ -621,6 +627,7 @@ input[type="color"] {
     flex-direction: column;
 
     touch-action: none;
+    will-change: transform, opacity;
 
     padding:
         env(safe-area-inset-top)

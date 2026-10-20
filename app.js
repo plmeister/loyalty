@@ -915,6 +915,44 @@ function flipTo(step, dx) {
     slideOutTimer = window.setTimeout(onSlideOut, FLIP_MS + 80);
 }
 
+/*
+ * Downward drags dismiss the viewer, mirroring the swipe-between-cards
+ * gesture but on the other axis. The screen follows the finger so the
+ * gesture reads as pulling the card away, and springs back if it's
+ * released short of the threshold.
+ */
+const DISMISS_MS = 180;
+
+let dragging = false;
+
+function setDismissOffset(offset, animate) {
+    viewerScreen.style.transition = animate
+        ? `transform ${DISMISS_MS}ms ease, opacity ${DISMISS_MS}ms ease`
+        : "none";
+    viewerScreen.style.transform = offset ? `translateY(${offset}px)` : "";
+    viewerScreen.style.opacity =
+        offset ? String(1 - Math.min(offset / 600, 0.6)) : "";
+}
+
+function dismissViewer() {
+    dragging = false;
+
+    setDismissOffset(window.innerHeight, true);
+    viewerScreen.style.opacity = "0";
+
+    window.setTimeout(() => {
+        /*
+         * Reset before showing the list, or the viewer keeps its
+         * translated position the next time it opens.
+         */
+        viewerScreen.style.transition = "none";
+        viewerScreen.style.transform = "";
+        viewerScreen.style.opacity = "";
+
+        goBack();
+    }, DISMISS_MS);
+}
+
 viewerScreen.addEventListener("pointerdown", event => {
     if (!event.isPrimary || flipBusy || event.target.closest("button")) {
         return;
@@ -926,8 +964,14 @@ viewerScreen.addEventListener("pointerdown", event => {
         // Capture is a nicety; the swipe still works without it.
     }
 
+    /*
+     * Clear any residue from a previous gesture on either axis before
+     * this one starts, so the two never compound.
+     */
     resetCodeOffset();
+    setDismissOffset("", false);
 
+    dragging = false;
     swipeStart = pointerPoint(event);
 });
 
@@ -936,7 +980,20 @@ viewerScreen.addEventListener("pointermove", event => {
         return;
     }
 
-    const { dx } = pointerDelta(event);
+    const { dx, dy } = pointerDelta(event);
+
+    /*
+     * Lock to an axis once the gesture is clearly one or the other,
+     * so a sloppy diagonal doesn't do both.
+     */
+    if (!dragging && Math.abs(dy) > Math.abs(dx) * 1.5 && dy > 0) {
+        dragging = true;
+    }
+
+    if (dragging) {
+        setDismissOffset(Math.max(dy, 0), false);
+        return;
+    }
 
     viewerCodeContainer.style.transition = "none";
     viewerCodeContainer.style.transform = `translateX(${dx}px)`;
@@ -953,6 +1010,18 @@ viewerScreen.addEventListener("pointerup", event => {
 
     swipeStart = null;
 
+    if (dragging) {
+        dragging = false;
+
+        if (dy > 120) {
+            dismissViewer();
+            return;
+        }
+
+        setDismissOffset("", true);
+        return;
+    }
+
     if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) {
         resetCodeOffset();
         viewerCodeContainer.style.transition =
@@ -966,6 +1035,12 @@ viewerScreen.addEventListener("pointerup", event => {
 
 viewerScreen.addEventListener("pointercancel", () => {
     swipeStart = null;
+
+    if (dragging) {
+        dragging = false;
+        setDismissOffset("", true);
+        return;
+    }
 
     if (!flipBusy) {
         resetCodeOffset();
