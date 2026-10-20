@@ -8,6 +8,22 @@
     <meta name="theme-color" content="#111111">
     <title>Loyalty Cards</title>
 
+    <link rel="manifest" href="manifest.json">
+
+    <!--
+        iOS ignores most of the manifest for home-screen installs, so
+        these carry the equivalent settings itself: the touch icon,
+        standalone display and the app title. Home-screen installs do
+        honour the manifest's orientation, which is what keeps the
+        viewer in portrait there.
+    -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Loyalty Cards">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <link rel="apple-touch-icon" href="icons/icon-180.png">
+
     <link rel="stylesheet" href="style.css">
 
     <script src="https://cdn.jsdelivr.net/npm/bwip-js@4.8.0/dist/bwip-js-min.js"></script>
