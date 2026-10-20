@@ -249,12 +249,12 @@ function screenFromHash(value) {
  * state being returned to already exists, so this only re-shows it.
  */
 function syncScreen(name) {
-    if (name === "list") {
+    if (name === "viewer" && !viewingId) {
         showList();
         return;
     }
 
-    if (name === "viewer" && !viewingId) {
+    if (name === "list") {
         showList();
         return;
     }
@@ -264,11 +264,16 @@ function syncScreen(name) {
     }
 
     showScreen(SCREENS[name]);
+
+    if (name === "viewer") {
+        refreshCodeLayout();
+    }
 }
 
 function showList() {
     stopScanner();
     releaseWakeLock();
+    unlockOrientation();
 
     viewingId = null;
     editingId = null;
@@ -360,6 +365,24 @@ function displayCard(card) {
     renderCode(card);
 }
 
+/*
+ * Card contents are rendered whenever the card changes, but the
+ * canvas can only be measured once the viewer is on screen — a
+ * hidden element reports zero size, which silently disables the
+ * vertical fitting. So re-fit whenever the viewer becomes visible.
+ */
+function refreshCodeLayout() {
+    const card = cards.find(c => c.id === viewingId);
+
+    if (!card || viewerScreen.classList.contains("hidden")) {
+        return;
+    }
+
+    const is2D = ["QR", "DATAMATRIX", "AZTEC"].includes(card.type);
+
+    sizeCode(is2D);
+}
+
 function openViewer(id) {
     const card = cards.find(c => c.id === id);
 
@@ -371,6 +394,8 @@ function openViewer(id) {
 
     navigateTo("viewer");
     showScreen(viewerScreen);
+    refreshCodeLayout();
+    lockPortrait();
     requestWakeLock();
 }
 
@@ -1853,6 +1878,44 @@ function stopScanner() {
 }
 
 /* ------------------------------------------------------------------
+   Screen orientation
+------------------------------------------------------------------ */
+
+/*
+ * Showing a card to a scanner is the one moment the layout must not
+ * move, so the viewer asks to stay put. The Screen Orientation API
+ * only honours lock() while fullscreen and isn't implemented on iOS,
+ * so this is best-effort by design — the fixed, centred layout of
+ * the viewer is what actually keeps the code steady if it fails.
+ */
+async function lockPortrait() {
+    const orientation = screen.orientation;
+
+    if (!orientation?.lock) {
+        return;
+    }
+
+    try {
+        await orientation.lock("portrait");
+    } catch {
+        // Ignored: unsupported, or not fullscreen.
+    }
+}
+function unlockOrientation() {
+    const orientation = screen.orientation;
+
+    if (!orientation?.unlock) {
+        return;
+    }
+
+    try {
+        orientation.unlock();
+    } catch {
+        // Ignore.
+    }
+}
+
+/* ------------------------------------------------------------------
    Wake Lock
 ------------------------------------------------------------------ */
 
@@ -1887,8 +1950,26 @@ document.addEventListener("visibilitychange", async () => {
         document.visibilityState === "visible" &&
         !viewerScreen.classList.contains("hidden")
     ) {
+        refreshCodeLayout();
         await requestWakeLock();
     }
+});
+
+/*
+ * Rotation or a resized window changes the viewer's shape, which
+ * decides whether a 1D code is drawn vertically. Re-fit on the way
+ * out of either, debounced since these fire in bursts.
+ */
+let resizeTimer = null;
+
+window.addEventListener("resize", () => {
+    if (viewerScreen.classList.contains("hidden")) {
+        return;
+    }
+
+    window.clearTimeout(resizeTimer);
+
+    resizeTimer = window.setTimeout(refreshCodeLayout, 150);
 });
 
 /* ------------------------------------------------------------------
