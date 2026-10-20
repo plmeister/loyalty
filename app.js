@@ -159,57 +159,77 @@ const SCREENS = {
     viewer: viewerScreen
 };
 
-const LIST_HASH = "";
+/*
+ * Every screen gets a hash of its own. The list is the base of the
+ * stack, and using a real hash (rather than the bare path) keeps the
+ * URL intact on GitHub Pages, where the app lives under /loyalty/.
+ */
+const HASHES = {
+    list: "#list",
+    edit: "#edit",
+    transfer: "#transfer",
+    scanner: "#scanner",
+    viewer: "#viewer"
+};
 
 let currentScreen = "list";
-let historyDepth = 0;
 
-/*
- * Opening a screen pushes a history entry, so the back button walks
- * back through the app rather than leaving the page. The depth
- * counter is what lets the back handlers know whether there's
- * something of ours to pop.
- */
+/* Entries this session pushed, which is what a back step may consume. */
+let pushed = 0;
+
 function navigateTo(name, replace = false) {
-    if (currentScreen === name) {
+    const hash = HASHES[name];
+
+    if (!hash) {
         return;
     }
 
-    const hash = name === "list" ? LIST_HASH : `#${name}`;
+    const state = { loyaltyScreen: name };
 
-    if (replace) {
-        history.replaceState({ loyaltyScreen: name }, "", hash || location.pathname);
+    if (currentScreen === name && !replace) {
+        return;
+    }
+
+    if (replace || currentScreen === name) {
+        history.replaceState(state, "", hash);
     } else {
-        historyDepth++;
-        history.pushState({ loyaltyScreen: name }, "", hash || location.pathname);
+        pushed++;
+        history.pushState(state, "", hash);
     }
 
     currentScreen = name;
 }
 
 /*
- * Step back. Uses real history when this session pushed it, and
- * otherwise falls back to the list so a deep link still exits
- * sensibly. The depth counter is only decremented by popstate, since
- * that's what actually observes the history move.
+ * Step back through the app. When this session has screens of ours
+ * on the stack, hand off to real history so the browser's own back
+ * behaves the same way. Otherwise go to the list, so a deep link or
+ * a reload still has somewhere useful to land.
  */
 function goBack() {
-    if (historyDepth > 0) {
+    if (pushed > 0) {
         history.back();
         return;
     }
 
-    showList();
+    if (currentScreen !== "list") {
+        navigateTo("list", true);
+        syncScreen("list");
+    }
 }
 
 window.addEventListener("popstate", event => {
-    if (historyDepth > 0) {
-        historyDepth--;
+    if (pushed > 0) {
+        pushed--;
     }
 
-    const name = event.state?.loyaltyScreen;
+    /*
+     * Fall back to the hash when the entry carries no state — which
+     * happens for entries the user navigated to directly.
+     */
+    const name = screenFromHash(event.state?.loyaltyScreen ?? location.hash);
 
-    if (!name || name === currentScreen) {
+    if (!name) {
         return;
     }
 
@@ -217,6 +237,12 @@ window.addEventListener("popstate", event => {
 
     syncScreen(name);
 });
+
+function screenFromHash(value) {
+    const key = String(value || "").replace(/^#/, "");
+
+    return key in SCREENS ? key : null;
+}
 
 /*
  * Reflect a screen name in the DOM without touching history. The
@@ -1907,12 +1933,27 @@ autoLocateButton.classList.toggle("active", autoLocateEnabled);
 renderCards();
 
 /*
- * The list is the base of the history stack, so it replaces rather
- * than pushes when the page loads with a stale hash from a previous
- * session.
+ * Give the current entry a known state before anything is pushed, so
+ * a back step from a deep link lands on the list. This rewrites only
+ * the hash — leaving the path alone, which matters on GitHub Pages.
  */
-history.replaceState({ loyaltyScreen: "list" }, "", location.pathname);
-navigateTo("list", true);
+loadTheme();
+autoLocateButton.classList.toggle("active", autoLocateEnabled);
+renderCards();
+
+const initial = screenFromHash(location.hash);
+
+history.replaceState(
+    { loyaltyScreen: initial ?? "list" },
+    "",
+    HASHES[initial] ?? HASHES.list
+);
+
+currentScreen = initial ?? "list";
+
+if (initial && initial !== "list") {
+    syncScreen(initial);
+}
 
 refreshNearby().then(() => {
     if (nearbyId) {
