@@ -147,6 +147,99 @@ function showScreen(screen) {
     screen.classList.remove("hidden");
 }
 
+/* ------------------------------------------------------------------
+   Navigation, including the browser/Android back button
+------------------------------------------------------------------ */
+
+const SCREENS = {
+    list: cardListScreen,
+    edit: editScreen,
+    transfer: transferScreen,
+    scanner: scannerScreen,
+    viewer: viewerScreen
+};
+
+const LIST_HASH = "";
+
+let currentScreen = "list";
+let historyDepth = 0;
+
+/*
+ * Opening a screen pushes a history entry, so the back button walks
+ * back through the app rather than leaving the page. The depth
+ * counter is what lets the back handlers know whether there's
+ * something of ours to pop.
+ */
+function navigateTo(name, replace = false) {
+    if (currentScreen === name) {
+        return;
+    }
+
+    const hash = name === "list" ? LIST_HASH : `#${name}`;
+
+    if (replace) {
+        history.replaceState({ loyaltyScreen: name }, "", hash || location.pathname);
+    } else {
+        historyDepth++;
+        history.pushState({ loyaltyScreen: name }, "", hash || location.pathname);
+    }
+
+    currentScreen = name;
+}
+
+/*
+ * Step back. Uses real history when this session pushed it, and
+ * otherwise falls back to the list so a deep link still exits
+ * sensibly. The depth counter is only decremented by popstate, since
+ * that's what actually observes the history move.
+ */
+function goBack() {
+    if (historyDepth > 0) {
+        history.back();
+        return;
+    }
+
+    showList();
+}
+
+window.addEventListener("popstate", event => {
+    if (historyDepth > 0) {
+        historyDepth--;
+    }
+
+    const name = event.state?.loyaltyScreen;
+
+    if (!name || name === currentScreen) {
+        return;
+    }
+
+    currentScreen = name;
+
+    syncScreen(name);
+});
+
+/*
+ * Reflect a screen name in the DOM without touching history. The
+ * state being returned to already exists, so this only re-shows it.
+ */
+function syncScreen(name) {
+    if (name === "list") {
+        showList();
+        return;
+    }
+
+    if (name === "viewer" && !viewingId) {
+        showList();
+        return;
+    }
+
+    if (name !== "scanner") {
+        stopScanner();
+    }
+
+    showScreen(SCREENS[name]);
+}
+
 function showList() {
     stopScanner();
     releaseWakeLock();
@@ -154,6 +247,7 @@ function showList() {
     viewingId = null;
     editingId = null;
 
+    currentScreen = "list";
     showScreen(cardListScreen);
 
     if (autoLocateEnabled) {
@@ -215,12 +309,15 @@ function openEditCard(id) {
     renderLocationList();
     locationStatus.classList.add("hidden");
 
+    navigateTo("edit");
     showScreen(editScreen);
 }
 
 function openTransfer() {
     importText.value = "";
     transferStatus.classList.add("hidden");
+
+    navigateTo("transfer");
     showScreen(transferScreen);
 }
 
@@ -244,8 +341,10 @@ function openViewer(id) {
         return;
     }
 
-    showScreen(viewerScreen);
     displayCard(card);
+
+    navigateTo("viewer");
+    showScreen(viewerScreen);
     requestWakeLock();
 }
 
@@ -1504,19 +1603,14 @@ scanButton.addEventListener("click", () => {
 
 scannerBackButton.addEventListener("click", () => {
     stopScanner();
-
-    if (scannerOrigin === "add") {
-        showList();
-        return;
-    }
-
-    showScreen(editScreen);
+    goBack();
 });
 
 scannerSkipButton.addEventListener("click", () => {
     stopScanner();
 
     scannerOrigin = "edit";
+    navigateTo("edit", true);
     showScreen(editScreen);
     cardName.focus();
 });
@@ -1529,6 +1623,7 @@ async function startScanner() {
          */
         if (scannerOrigin === "add") {
             scannerOrigin = "edit";
+            navigateTo("edit", true);
             showScreen(editScreen);
             cardName.focus();
         } else {
@@ -1542,6 +1637,11 @@ async function startScanner() {
     scannerTitle.textContent =
         scannerOrigin === "add" ? "Scan your card" : "Scan barcode";
 
+    /*
+     * The scanner is a step of its own, so it gets its own history
+     * entry unless it was reached by replacing the add flow's entry.
+     */
+    navigateTo("scanner");
     showScreen(scannerScreen);
 
     scannerStatus.textContent =
@@ -1614,6 +1714,7 @@ function handleScanned(code, type) {
             );
 
             scannerOrigin = "edit";
+            currentScreen = "list";
 
             if (again) {
                 openViewer(existing.id);
@@ -1628,7 +1729,12 @@ function handleScanned(code, type) {
     cardCode.value = code;
     cardType.value = type;
 
+    /*
+     * The scan entry is replaced by the form, so backing out of the
+     * form returns to the list rather than to a dead camera.
+     */
     scannerOrigin = "edit";
+    navigateTo("edit", true);
     showScreen(editScreen);
 
     /* The number and type are filled in, so move on to the name. */
@@ -1743,10 +1849,10 @@ themeButton.addEventListener("click", () => {
 addCardButton.addEventListener("click", openAddCard);
 importExportButton.addEventListener("click", openTransfer);
 
-editBackButton.addEventListener("click", showList);
-transferBackButton.addEventListener("click", showList);
+editBackButton.addEventListener("click", goBack);
+transferBackButton.addEventListener("click", goBack);
 
-viewerBackButton.addEventListener("click", showList);
+viewerBackButton.addEventListener("click", goBack);
 
 /* ------------------------------------------------------------------
    Initialisation
@@ -1755,6 +1861,14 @@ viewerBackButton.addEventListener("click", showList);
 loadTheme();
 autoLocateButton.classList.toggle("active", autoLocateEnabled);
 renderCards();
+
+/*
+ * The list is the base of the history stack, so it replaces rather
+ * than pushes when the page loads with a stale hash from a previous
+ * session.
+ */
+history.replaceState({ loyaltyScreen: "list" }, "", location.pathname);
+navigateTo("list", true);
 
 refreshNearby().then(() => {
     if (nearbyId) {
