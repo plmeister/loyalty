@@ -365,6 +365,54 @@ function openAdjacentCard(step) {
 }
 
 /* ------------------------------------------------------------------
+   Haptics
+------------------------------------------------------------------ */
+
+/*
+ * navigator.vibrate exists but is gated behind a user-activation
+ * flag, so the call silently no-ops until it's been granted. Asking
+ * for a zero-length vibration during a real touch is the stock way
+ * to flip that flag, after which the haptics actually land.
+ */
+let hapticsUnlocked = false;
+
+function haptic(pattern) {
+    if (typeof navigator.vibrate !== "function") {
+        return;
+    }
+
+    try {
+        navigator.vibrate(pattern);
+    } catch {
+        // Vibration can throw where it's disallowed; never fatal.
+    }
+}
+
+function unlockHaptics() {
+    if (hapticsUnlocked || typeof navigator.vibrate !== "function") {
+        return;
+    }
+
+    hapticsUnlocked = true;
+
+    try {
+        navigator.vibrate(0);
+    } catch {
+        // Ignore.
+    }
+}
+
+/*
+ * Touch events give a genuine user gesture, which pointer events
+ * don't always count as. This runs once, before any press handler.
+ */
+document.addEventListener(
+    "touchstart",
+    () => unlockHaptics(),
+    { once: true, passive: true }
+);
+
+/* ------------------------------------------------------------------
    Card list
 ------------------------------------------------------------------ */
 
@@ -424,6 +472,8 @@ function renderCards() {
                 return;
             }
 
+            unlockHaptics();
+
             pressFired = false;
             row.classList.add("pressing");
 
@@ -433,19 +483,13 @@ function renderCards() {
              */
             pressTick = window.setTimeout(() => {
                 pressTick = null;
-
-                if (navigator.vibrate) {
-                    navigator.vibrate(15);
-                }
+                haptic(15);
             }, 150);
 
             pressTimer = window.setTimeout(() => {
                 pressTimer = null;
                 pressFired = true;
-
-                if (navigator.vibrate) {
-                    navigator.vibrate(30);
-                }
+                haptic(30);
 
                 openActionMenu(card.id);
             }, 500);
