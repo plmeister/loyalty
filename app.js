@@ -1937,10 +1937,6 @@ renderCards();
  * a back step from a deep link lands on the list. This rewrites only
  * the hash — leaving the path alone, which matters on GitHub Pages.
  */
-loadTheme();
-autoLocateButton.classList.toggle("active", autoLocateEnabled);
-renderCards();
-
 const initial = screenFromHash(location.hash);
 
 history.replaceState(
@@ -1955,8 +1951,17 @@ if (initial && initial !== "list") {
     syncScreen(initial);
 }
 
+/*
+ * Auto-detect opens the nearby card. That's a real navigation, so it
+ * pushes a history entry — backing out of it lands on the list rather
+ * than leaving the app. The delay is deliberate: openViewer has to
+ * wait for the location fix, and until it resolves the user may have
+ * already navigated elsewhere, in which case we leave them alone.
+ */
 refreshNearby().then(() => {
-    if (nearbyId) {
-        openViewer(nearbyId);
+    if (!nearbyId || currentScreen !== "list") {
+        return;
     }
+
+    openViewer(nearbyId);
 });
