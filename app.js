@@ -367,14 +367,24 @@ function displayCard(card) {
 
 /*
  * Card contents are rendered whenever the card changes, but the
- * canvas can only be measured once the viewer is on screen — a
- * hidden element reports zero size, which silently disables the
- * vertical fitting. So re-fit whenever the viewer becomes visible.
+ * canvas can only be measured once the viewer is on screen and
+ * painted — an element that is hidden, or shown but not yet laid
+ * out, measures zero, which silently disables the vertical fitting.
+ *
+ * Rather than making every caller remember to wait for a paint, this
+ * defers itself when the measurement comes back empty.
  */
-function refreshCodeLayout() {
+function refreshCodeLayout(attempt = 0) {
     const card = cards.find(c => c.id === viewingId);
 
     if (!card || viewerScreen.classList.contains("hidden")) {
+        return;
+    }
+
+    const bounds = viewerCodeContainer.getBoundingClientRect();
+
+    if ((bounds.width === 0 || bounds.height === 0) && attempt < 10) {
+        window.requestAnimationFrame(() => refreshCodeLayout(attempt + 1));
         return;
     }
 
